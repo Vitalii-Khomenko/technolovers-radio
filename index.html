@@ -465,6 +465,7 @@ body.pod .seekrow { display: flex; }
     if (!current) return;
     if (mode === "pod") { pod.pause(); podWant = false; setMode("radio"); }   // Podcast läuft: zurück zum Radio
     wantPlay = true; failedAll = false;
+    tryIdx = 0;                         // jeder neue Start beginnt wieder bei der ersten Adresse
     var url = candidate();
     if (!url) { fail(); return; }
     setStatus("Verbinde …", false);
@@ -546,6 +547,10 @@ body.pod .seekrow { display: flex; }
     if (e.code === "Space") { e.preventDefault(); toggle(); }
     else if (e.code === "ArrowRight") { if (mode === "pod") podSeek(30); else step(1); }
     else if (e.code === "ArrowLeft") { if (mode === "pod") podSeek(-15); else step(-1); }
+  });
+  // Leertaste löst auf einem fokussierten Button sonst zusätzlich dessen Klick aus (Doppel-Toggle)
+  document.addEventListener("keyup", function (e) {
+    if (e.code === "Space" && e.target.tagName !== "INPUT") e.preventDefault();
   });
 
   /* ---------- Lautstärke ---------- */
