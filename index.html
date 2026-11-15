@@ -463,7 +463,7 @@ body.pod .seekrow { display: flex; }
 
   function start() {
     if (!current) return;
-    if (mode === "pod") { pod.pause(); podWant = false; setMode("radio"); }   // Podcast läuft: zurück zum Radio
+    if (mode === "pod") { savePos(); pod.pause(); podWant = false; playReq++; setMode("radio"); }   // Podcast läuft: zurück zum Radio
     wantPlay = true; failedAll = false;
     tryIdx = 0;                         // jeder neue Start beginnt wieder bei der ersten Adresse
     var url = candidate();
@@ -622,6 +622,7 @@ body.pod .seekrow { display: flex; }
   subs = obj(subs); pos = obj(pos); done = obj(done); dlMeta = obj(dlMeta);
   var podTab = "subs", openShow = null, showEps = null, curEp = null;
   var pendingSeek = 0, lastSave = 0, blobUrl = null, rawTried = false;
+  var srcEp = null, playReq = 0;          // srcEp: Folge, deren Quelle gerade im Player geladen ist; playReq: macht ausstehende Starts ungültig
   var epIndex = {}, showIndex = {}, dling = {};
   var feed = null, feedBusy = false;
   var sq = "", skind = "show", sres = null, sbusy = false, serr = false, stimer = null, stoken = 0;
@@ -735,14 +736,20 @@ body.pod .seekrow { display: flex; }
   }
   function refreshPod() { if (view === "pod") renderPod(); }
 
+  function feedKey() { return Object.keys(subs).sort().join(","); }
   function loadFeed() {
     var ids = Object.keys(subs); if (!ids.length || feedBusy) return;
     feedBusy = true;
+    var key = feedKey();
     Promise.all(ids.map(function (id) {
       return api("lookup?id=" + encodeURIComponent(id) + "&entity=podcastEpisode&limit=8").then(epsOf).catch(function () { return []; });
     })).then(function (lists) {
+      feedBusy = false;
+      if (key !== feedKey()) {                          // Abos haben sich während der Anfrage geändert: verwerfen, neu laden
+        feed = null; if (view === "pod" && !openShow && podTab === "subs") renderSubs(); return;
+      }
       var all = [].concat.apply([], lists).sort(function (a, b) { return Date.parse(b.date) - Date.parse(a.date); });
-      feed = { t: Date.now(), eps: all.slice(0, 40) }; feedBusy = false;
+      feed = { t: Date.now(), eps: all.slice(0, 40) };
       if (view === "pod" && !openShow && podTab === "subs") renderSubs();
     });
   }
@@ -842,7 +849,15 @@ body.pod .seekrow { display: flex; }
     Array.prototype.forEach.call(podBody.querySelectorAll("[data-dl]"), function (el) { if (el.getAttribute("data-dl") === id) el.textContent = dling[id] + "%"; });
   }
   function fetchBlob(ep, onPct) {
-    return fetch(ep.url).then(function (r) {
+    // http-Adressen zuerst als https laden (auf einer https-Seite blockiert der Browser sonst alles als Mixed Content);
+    // die Originaladresse nur versuchen, wenn die App selbst über http läuft
+    var urls = [httpsUrl(ep.url)];
+    if (urls[0] !== ep.url && location.protocol !== "https:") urls.push(ep.url);
+    function attempt(i) { return fetchOne(urls[i], onPct).catch(function (err) { if (i + 1 < urls.length) return attempt(i + 1); throw err; }); }
+    return attempt(0);
+  }
+  function fetchOne(url, onPct) {
+    return fetch(url).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       var total = +r.headers.get("content-length") || 0, type = r.headers.get("content-type") || "audio/mpeg";
       if (!r.body || !r.body.getReader) return r.blob();
@@ -890,8 +905,9 @@ body.pod .seekrow { display: flex; }
     $("next").setAttribute("aria-label", m === "pod" ? "Nächste Folge" : "Nächster Sender");
   }
   function podStatus(text, isErr) { var el = $("dockS"); el.textContent = text; el.classList.toggle("err", !!isErr); }
+  function httpsUrl(u) { return u.replace(/^http:\/\//i, "https://"); }
   function resolveSrc(ep) {
-    if (!dlMeta[ep.id]) return Promise.resolve(ep.url.replace(/^http:\/\//i, "https://"));
+    if (!dlMeta[ep.id]) return Promise.resolve(httpsUrl(ep.url));
     return idbDo("readonly", function (os) { return os.get(ep.id); }).then(function (blob) {
       if (!blob) return ep.url;
       if (blobUrl) URL.revokeObjectURL(blobUrl);
@@ -901,14 +917,16 @@ body.pod .seekrow { display: flex; }
   function playEp(ep) {
     if (!ep || !ep.url) return;
     if (mode !== "pod") { if (wantPlay) stop(); document.body.classList.remove("playing"); setMode("pod"); }
+    else if (srcEp) { savePos(); pod.pause(); }          // vorherige Folge: Fortschritt sichern, bevor curEp wechselt
+    var my = ++playReq;
     curEp = ep; podWant = true; rawTried = false;
     $("dockT").textContent = ep.title; podStatus(ep.show, false);
     document.title = ep.title + " · Technolovers Radio";
     podMedia(); syncPlayIcon(); refreshPod();
     resolveSrc(ep).then(function (src) {
-      if (curEp !== ep) return;
+      if (my !== playReq || mode !== "pod") return;       // inzwischen andere Folge gewählt oder zum Radio gewechselt
       pendingSeek = pos[ep.id] || 0;
-      pod.src = src; pod.playbackRate = rate;
+      pod.src = src; srcEp = ep; pod.playbackRate = rate;
       var p = pod.play();
       if (p && p.catch) p.catch(function (err) { if (err && err.name === "NotAllowedError") { podWant = false; syncPlayIcon(); refreshPod(); } });
     });
@@ -931,7 +949,8 @@ body.pod .seekrow { display: flex; }
     var p = (pod.currentTime || 0) > 5 ? null : nextInQueue(-1);
     if (p) playEp(p); else if (curEp) pod.currentTime = 0;
   }
-  function savePos() { if (!curEp) return; pos[curEp.id] = Math.floor(pod.currentTime || 0); store.set("pos", pos); lastSave = Date.now(); }
+  function savePos() { if (!srcEp || pod.ended) return;   // zu Ende gehörte Folgen behalten keine Position
+     pos[srcEp.id] = Math.floor(pod.currentTime || 0); store.set("pos", pos); lastSave = Date.now(); }
   function seekUi() {
     var d = pod.duration; if (!isFinite(d) || !d) d = curEp ? curEp.ms / 1000 : 0;
     var c = pod.currentTime || 0;
@@ -958,21 +977,21 @@ body.pod .seekrow { display: flex; }
     syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("pause", function () {
-    if (mode !== "pod" || pod.ended || !pod.paused) return;   // !paused: Quelle wurde gerade gewechselt
+    if (mode !== "pod" || pod.ended || !pod.paused || curEp !== srcEp) return;   // Quelle wird gerade gewechselt
     podWant = false; savePos();
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
     syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("waiting", function () { if (podWant && mode === "pod") podStatus("Puffert …", false); });
   pod.addEventListener("error", function () {
-    if (mode !== "pod" || !curEp || !pod.getAttribute("src")) return;
+    if (mode !== "pod" || !curEp || curEp !== srcEp || !pod.getAttribute("src")) return;
     if (!rawTried && /^http:\/\//i.test(curEp.url) && pod.src !== curEp.url && !dlMeta[curEp.id]) {   // https-Variante fehlt: Original versuchen
       rawTried = true; pod.src = curEp.url; pod.play().catch(function () {}); return;
     }
     podWant = false; podStatus("Folge nicht abspielbar. Versuche eine andere.", true); syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("ended", function () {
-    if (mode !== "pod" || !curEp) return;
+    if (mode !== "pod" || !curEp || curEp !== srcEp) return;
     delete pos[curEp.id]; done[curEp.id] = 1; store.set("pos", pos); store.set("done", done);
     podWant = false;
     var n = nextInQueue(1);
