@@ -1173,7 +1173,7 @@ body.pod .seekrow { display: flex; }
   var books = store.get("books", []);
   if (!Array.isArray(books)) books = [];
   books = books.filter(function (b) { return b && b.id && Array.isArray(b.tracks); });
-  var openBookId = null, importing = null, dragTid = null;
+  var openBookId = null, importing = null, dragTid = null, bookAdd = null;       // bookAdd: { id } beim Hinzufügen zu einem bestehenden Buch
   var bookBody = $("bookBody");
   var AUDIO_RE = /\.(mp3|m4a|m4b|aac|ogg|oga|opus|wav|flac)$/i;
   var BOOK_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5C6.5 4.3 9.5 4.5 12 6.2c2.5-1.7 5.5-1.9 8-.7V19c-2.5-1.2-5.5-1-8 .7-2.5-1.7-5.5-1.9-8-.7z"/><path d="M12 6.2v13.5"/></svg>';
@@ -1285,16 +1285,18 @@ body.pod .seekrow { display: flex; }
     else if (Date.now() - (p.ts || 0) > PENDING_STALE) sweep();
   }
 
-  function importFiles(fileList, forcedName) {
-    var list = Array.prototype.slice.call(fileList).filter(function (f) { return AUDIO_RE.test(f.name) || /^audio\//.test(f.type || ""); });
-    if (!list.length) { toast("Keine Audiodateien gefunden."); return; }
-    if (importing) { toast("Es wird gerade schon ein Buch hinzugefügt."); return; }
-    var name = forcedName || (list[0].webkitRelativePath || "").split("/")[0] || "Neues Buch";
-    var items = list.map(function (f) {
+  function bookItems(fileList) {                          // Audiodateien in natürlicher Reihenfolge, mit Kapitelname
+    return Array.prototype.slice.call(fileList).filter(function (f) { return AUDIO_RE.test(f.name) || /^audio\//.test(f.type || ""); }).map(function (f) {
       var rel = f.webkitRelativePath || f.name, parts = rel.split("/");
       if (f.webkitRelativePath) parts.shift();            // der Ordnername steht schon im Buchtitel
       return { f: f, rel: rel, name: parts.join(" / ").replace(AUDIO_RE, ""), size: f.size, mod: f.lastModified || 0 };
     }).sort(function (a, b) { return natCmp(a.rel, b.rel); });
+  }
+  function importFiles(fileList, forcedName) {
+    var items = bookItems(fileList);
+    if (!items.length) { toast("Keine Audiodateien gefunden."); return; }
+    if (importing) { toast("Es wird gerade schon ein Buch hinzugefügt."); return; }
+    var name = forcedName || (items[0].f.webkitRelativePath || "").split("/")[0] || "Neues Buch";
     if (books.some(function (b) { return b.name === name && b.tracks.length === items.length; })) { toast("„" + esc(name) + "“ ist schon vorhanden.", 5000); return; }
 
     var b = { id: "b" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, created: Date.now(), cur: null, tracks: [] };
@@ -1321,6 +1323,46 @@ body.pod .seekrow { display: flex; }
     }, function () {
       importing = null; toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook();
     });
+  }
+  // Kapitel zu einem bestehenden Buch hinzufügen (ans Ende; Reihenfolge ändern geht danach wie gewohnt). Schon vorhandene Pfade werden übersprungen,
+  // so kann man denselben Ordner nach neuen Dateien erneut wählen. Neue Schlüssel ab "start": der Marker nennt den Bereich (siehe reclaimPending).
+  function addToBook(b, fileList) {
+    var items = bookItems(fileList);
+    if (!items.length) { toast("Keine Audiodateien gefunden."); return; }
+    if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
+    var have = {}, next = 0, seen = {}, skipped = 0, work = [];
+    b.tracks.forEach(function (t) { have[t.path] = 1; next = Math.max(next, (+t.id.slice(1) || 0) + 1); });
+    var start = next;
+    items.forEach(function (it) {
+      if (have[it.rel] || seen[it.rel]) { skipped++; return; }
+      seen[it.rel] = 1;
+      work.push({ it: it, t: { id: "k" + next++, name: it.name, path: it.rel, size: it.size, mod: it.mod } });
+    });
+    if (!work.length) { toast("Alle Dateien sind schon im Buch.", 4000); return; }
+    importing = { name: b.name, done: 0, total: work.length }; renderBook();
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
+    function copyAll() {
+      return (function step(i) {
+        if (i >= work.length) return null;
+        return idbDo("readwrite", function (os) { return os.put(work[i].it.f, fid(b, work[i].t)); }).then(function () {
+          importing.done = i + 1; setPending(b, work.length, start); renderBook(); return step(i + 1);
+        });
+      })(0);
+    }
+    function discardNew() { return dropKeys(b.id, work.length, start).then(function () { store.set("pending", null); }, function () {}); }
+    withImportLock(b.id, function () {
+      setPending(b, work.length, start);
+      return Promise.resolve(copyAll()).then(function () {
+        if (books.indexOf(b) < 0) return discardNew();      // das Buch wurde währenddessen gelöscht
+        work.forEach(function (w) { b.tracks.push(w.t); });
+        saveBooks(); store.set("pending", null);
+        return null;
+      }, function (err) { return discardNew().then(function () { throw err; }); });
+    }).then(function () {
+      importing = null;
+      if (books.indexOf(b) >= 0) toast(work.length + " neu zu „" + esc(b.name) + "“" + (skipped ? ", " + skipped + " schon vorhanden" : "") + ".", 4000);
+      renderBook();
+    }, function () { importing = null; toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook(); });
   }
   function deleteBook(b) {
     if (!confirm("„" + b.name + "“ und alle gespeicherten Dateien löschen?")) return;
@@ -1389,15 +1431,21 @@ body.pod .seekrow { display: flex; }
     var sel = '<select class="pbtn" id="bookSort" aria-label="Sortieren"><option value="">Sortieren …</option>' + SORTS.map(function (x) { return '<option value="' + x[0] + '">' + x[1] + "</option>"; }).join("") + "</select>";
     bookBody.innerHTML = '<div class="back-row">' + pb("bback", "0", "← Bücher") + '</div><div class="show-head"><div class="bk-icon big">' + BOOK_SVG + '</div><div class="tx"><h2>' + esc(b.name) + "</h2><p>" +
       st.c + " von " + st.n + " Kapiteln · " + fmtSize(st.size) + (st.fin ? " · ✓ fertig" : "") + '</p><div class="bar"><i style="width:' + st.pct + '%"></i></div></div></div>' +
-      '<div class="kinds">' + pb("bresume", b.id, playing ? "Pause" : (b.cur ? "Weiter" : "Abspielen"), true) + sel + pb("brename", b.id, "Umbenennen") + pb("bdone", b.id, "Alle gehört") + pb("breset", b.id, "Zurücksetzen") + pb("bdel", b.id, "Löschen") + "</div>" +
+      '<div class="kinds">' + pb("bresume", b.id, playing ? "Pause" : (b.cur ? "Weiter" : "Abspielen"), true) + sel + pb("baddfiles", b.id, "Dateien hinzufügen") + pb("badddir", b.id, "Ordner hinzufügen") + pb("brename", b.id, "Umbenennen") + pb("bdone", b.id, "Alle gehört") + pb("breset", b.id, "Zurücksetzen") + pb("bdel", b.id, "Löschen") + "</div>" +
+      (importing && importing.kind !== "vault" ? '<div class="hint" style="margin:0 2px 10px">Wird hinzugefügt … ' + importing.done + " von " + importing.total + "</div>" : "") +
       '<div class="hint" style="margin:0 2px 10px">Reihenfolge: Zeilen ziehen oder die Pfeile benutzen.</div><div class="pod-list">' + b.tracks.map(function (t, i) { return trkRow(b, t, i); }).join("") + "</div>";
   }
 
   /* -- Bedienung -- */
-  $("pickDir").addEventListener("change", function (e) { importFiles(e.target.files); e.target.value = ""; });
+  $("pickDir").addEventListener("change", function (e) {
+    var files = Array.prototype.slice.call(e.target.files), add = bookAdd; bookAdd = null; e.target.value = "";
+    if (!files.length) return;
+    if (add && findBook(add.id)) addToBook(findBook(add.id), files); else importFiles(files);
+  });
   $("pickFiles").addEventListener("change", function (e) {
     if (!e.target.files.length) return;
-    var files = Array.prototype.slice.call(e.target.files); e.target.value = "";
+    var files = Array.prototype.slice.call(e.target.files), add = bookAdd; bookAdd = null; e.target.value = "";
+    if (add && findBook(add.id)) { addToBook(findBook(add.id), files); return; }
     var n = prompt("Name des Buchs:", "Neues Buch");
     if (n !== null) importFiles(files, n.trim() || "Neues Buch");
   });
@@ -1411,14 +1459,16 @@ body.pod .seekrow { display: flex; }
     var act = t.getAttribute("data-act"), id = t.getAttribute("data-id");
     var isTrackAct = act === "tplay" || act === "tdone" || act === "tup" || act === "tdown";
     var b = findBook(isTrackAct ? openBookId : id), tr = b && isTrackAct ? trackOf(b, id) : null;
-    if (act === "bookadd") $("pickDir").click();
-    else if (act === "bookfiles") $("pickFiles").click();
+    if (act === "bookadd") { bookAdd = null; $("pickDir").click(); }
+    else if (act === "bookfiles") { bookAdd = null; $("pickFiles").click(); }
     else if (act === "bback") { openBookId = null; renderBook(); }
     else if (!b) return;
     else if (act === "bopen") { openBookId = b.id; renderBook(); window.scrollTo(0, 0); }
     else if (act === "bresume") {
       if (curEp && curEp.bookId === b.id && mode === "pod") podToggle(); else playBook(b, resumeTrack(b));
     }
+    else if (act === "baddfiles") { bookAdd = { id: b.id }; $("pickFiles").click(); }
+    else if (act === "badddir") { bookAdd = { id: b.id }; $("pickDir").click(); }
     else if (act === "bdel") deleteBook(b);
     else if (act === "brename") { var n = prompt("Name des Buchs:", b.name); if (n && n.trim()) { b.name = n.trim(); saveBooks(); renderBook(); } }
     else if (act === "bdone" || act === "breset") {
