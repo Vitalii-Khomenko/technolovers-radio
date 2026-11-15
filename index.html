@@ -1603,7 +1603,10 @@ body.pod .seekrow { display: flex; }
     });
     // Autolinks
     t = t.replace(/&lt;((?:https?|mailto):[^\s]*?)&gt;/g, function (m, u) { return keep('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + "</a>"); });
-    t = t.replace(/(^|[^\w"=])(https?:\/\/[^\s<>]*[^\s<>.,;:!?)\]&])/g, function (m, pre, u) { return pre + keep('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + "</a>"); });
+    t = t.replace(/(^|[^\w"=])(https?:\/\/(?:[^\s&]|&amp;)+)/g, function (m, pre, u) {
+      var tail = /[.,;:!?)\]]+$/.exec(u); if (tail) u = u.slice(0, -tail[0].length);
+      return u.length > 8 ? pre + keep('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + "</a>") + (tail ? tail[0] : "") : m;
+    });
     // Fußnoten
     t = t.replace(/\[\^([^\]\s]+)\]/g, function (m, eid) {
       var id = unesc(eid);
@@ -1739,7 +1742,7 @@ body.pod .seekrow { display: flex; }
       // Fußnotendefinition
       if ((m = /^ {0,3}\[\^([^\]\s]+)\]:\s*(.*)$/.exec(ln))) {
         var fb = [m[2]]; i++;
-        while (i < n && !isBlank(lines[i]) && (/^ {2,}/.test(lines[i]) || !startsBlock(lines[i]))) { fb.push(lines[i].trim()); i++; }
+        while (i < n && !isBlank(lines[i]) && !/^ {0,3}\[\^[^\]\s]+\]:/.test(lines[i]) && (/^ {2,}/.test(lines[i]) || !startsBlock(lines[i]))) { fb.push(lines[i].trim()); i++; }
         c.notes[m[1]] = fb.join("\n"); continue;
       }
       // Absatz (mit Setext-Überschrift)
@@ -1795,7 +1798,7 @@ body.pod .seekrow { display: flex; }
   }
   function closest(list, from) {
     if (!list || !list.length) return null;
-    var d = dirOf(from).toLowerCase(), best = null, score = -1;
+    var d = dirOf(from).toLowerCase(), best = null, score = -Infinity;
     list.forEach(function (f) {
       var fd = dirOf(f.path).toLowerCase(), s = 0;
       while (s < d.length && s < fd.length && d.charAt(s) === fd.charAt(s)) s++;
@@ -1851,7 +1854,7 @@ body.pod .seekrow { display: flex; }
   /* -- Lesen -- */
   function scrollToId(id) {
     var el = document.getElementById(id);
-    if (el) { el.scrollIntoView({ block: "start", behavior: "smooth" }); return true; }
+    if (el) { if (el.scrollIntoView) el.scrollIntoView({ block: "start", behavior: "smooth" }); return true; }
     return false;
   }
   function readerShell(v, f, r) {
