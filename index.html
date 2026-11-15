@@ -1170,7 +1170,7 @@ body.pod .seekrow { display: flex; }
   var PENDING_STALE = 600000;
   var hasLocks = !!(navigator.locks && navigator.locks.request);
   function withImportLock(id, work) { return hasLocks ? navigator.locks.request("tl-import-" + id, function () { return work(); }) : work(); }
-  function setPending(b, n) { store.set("pending", { id: b.id, n: n, ts: Date.now() }); }
+  function setPending(b, n) { store.set("pending", { id: b.id, n: n, ts: Date.now(), lk: hasLocks ? 1 : 0 }); }   // lk: der Import hält eine Web Lock
   function dropKeys(id, n) { return idbDo("readwrite", function (os) { for (var i = 0; i < n; i++) os.delete(id + "/k" + i); }); }
   function savedBook(id) { var l = store.get("books", []); return Array.isArray(l) && l.some(function (b) { return b && b.id === id; }); }
   function reclaimPending() {
@@ -1184,7 +1184,10 @@ body.pod .seekrow { display: flex; }
         var d = store.get("pending", null); if (d && d.id === p.id) store.set("pending", null);
       }, function () {});                                                        // Marker bleibt, der nächste Start versucht es erneut
     }
-    if (hasLocks) navigator.locks.request("tl-import-" + p.id, { ifAvailable: true }, function (lock) { return lock ? sweep() : null; }).catch(function () {});
+    // Nur ein Marker mit lk wurde unter einer Web Lock geschrieben: dort beweist eine freie Lock, dass der Import beendet ist. Marker ohne lk stammen
+    // von einer älteren Version (kein Lock, z. B. in einem noch offenen Tab) oder aus einem Browser ohne Web Locks: eine freie Lock sagt darüber nichts,
+    // also nur sehr alte Marker aufräumen (ts wird bei jeder kopierten Datei erneuert).
+    if (p.lk && hasLocks) navigator.locks.request("tl-import-" + p.id, { ifAvailable: true }, function (lock) { return lock ? sweep() : null; }).catch(function () {});
     else if (Date.now() - (p.ts || 0) > PENDING_STALE) sweep();
   }
 
