@@ -949,8 +949,13 @@ body.pod .seekrow { display: flex; }
     var p = (pod.currentTime || 0) > 5 ? null : nextInQueue(-1);
     if (p) playEp(p); else if (curEp) pod.currentTime = 0;
   }
-  function savePos() { if (!srcEp || pod.ended) return;   // zu Ende gehörte Folgen behalten keine Position
-     pos[srcEp.id] = Math.floor(pod.currentTime || 0); store.set("pos", pos); lastSave = Date.now(); }
+  // Fortschritt gehört zur Folge, deren Quelle geladen ist. Nicht speichern, solange
+  //  - die Folge zu Ende gehört wurde (sie behält keine Position) oder
+  //  - die gespeicherte Startposition noch nicht angewendet ist (currentTime ist dann noch 0).
+  function savePos() {
+    if (!srcEp || pod.ended || pendingSeek > 0) return;
+    pos[srcEp.id] = Math.floor(pod.currentTime || 0); store.set("pos", pos); lastSave = Date.now();
+  }
   function seekUi() {
     var d = pod.duration; if (!isFinite(d) || !d) d = curEp ? curEp.ms / 1000 : 0;
     var c = pod.currentTime || 0;
