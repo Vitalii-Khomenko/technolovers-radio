@@ -235,11 +235,14 @@ body.pod .seekrow { display: flex; }
 .md a.wl { text-decoration-style: solid; }
 .md .unres { color: var(--muted); text-decoration: underline dotted; cursor: default; }
 .md code { font: .88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: rgba(255,255,255,.09); padding: .12em .4em; border-radius: 6px; }
-.md pre.code { position: relative; margin: 1em 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(4,7,16,.75); overflow-x: auto; line-height: 1.5; }
+.md .codebox { margin: 1em 0; border: 1px solid var(--line); border-radius: 14px; background: rgba(4,7,16,.75); overflow: hidden; }
+.md .chead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.04); }
+.md .chead .lang, .md .chead .copy { box-sizing: border-box; display: inline-flex; align-items: center; height: 26px; margin: 0; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass); color: var(--muted); font: 500 .72rem/1 var(--font-body); letter-spacing: .06em; }
+.md .chead .lang { text-transform: uppercase; letter-spacing: .1em; }
+.md .chead .copy { cursor: pointer; transition: .2s; }
+.md .chead .copy:hover { color: var(--ink); background: var(--glass-hi); }
+.md pre.code { margin: 0; padding: 12px 16px 14px; border: 0; background: none; overflow-x: auto; line-height: 1.75; }
 .md pre.code code { display: block; padding: 0; background: none; font-size: .85em; white-space: pre; }
-.md pre .copy { position: absolute; top: 8px; right: 8px; border: 1px solid var(--line); background: var(--glass); color: var(--muted); border-radius: 999px; padding: 3px 10px; font: 500 .7rem var(--font-body); cursor: pointer; }
-.md pre .copy:hover { color: var(--ink); }
-.md pre .lang { position: absolute; top: 9px; right: 86px; font: 500 .68rem var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
 .tk-c { color: #7f8aa8; font-style: italic; } .tk-s { color: #a8e08a; } .tk-n { color: #f5b07f; } .tk-k { color: #c9a9ff; } .tk-p { color: #7dcfff; }
 .md blockquote { margin: 1em 0; padding: .1em 1em; border-left: 3px solid var(--accent); background: rgba(255,255,255,.04); border-radius: 0 12px 12px 0; color: #cfd8f2; }
 .md .tbl { overflow-x: auto; margin: 1em 0; } .md table { border-collapse: collapse; min-width: 60%; }
@@ -349,7 +352,7 @@ body.pod .seekrow { display: flex; }
   <div id="noteView" hidden>
     <div class="pod-top"><div id="noteBody"></div></div>
     <input class="vh" type="file" id="pickMd" webkitdirectory multiple tabindex="-1" aria-hidden="true">
-    <input class="vh" type="file" id="pickMdFiles" accept=".md,.markdown,text/markdown" multiple tabindex="-1" aria-hidden="true">
+    <input class="vh" type="file" id="pickMdFiles" accept=".md,.markdown,.png,.jpg,.jpeg,.gif,.webp,.svg,.avif,.bmp,text/markdown,image/*" multiple tabindex="-1" aria-hidden="true">
     <footer class="note">
       Notizen sind nur zum Lesen da. Die Dateien werden als Kopie im Speicher dieses Browsers abgelegt (so viel Platz wie die Dateien selbst); Änderungen an den Originalen übernimmst du mit „Aktualisieren“. Verborgene Ordner wie .obsidian werden übersprungen. Formeln und Diagramme (Mermaid) werden als Text angezeigt.
     </footer>
@@ -1246,10 +1249,20 @@ body.pod .seekrow { display: flex; }
   var PENDING_STALE = 600000;
   var hasLocks = !!(navigator.locks && navigator.locks.request);
   function withImportLock(id, work) { return hasLocks ? navigator.locks.request("tl-import-" + id, function () { return work(); }) : work(); }
-  function setPending(b, n) { store.set("pending", { id: b.id, n: n, ts: Date.now(), lk: hasLocks ? 1 : 0 }); }   // lk: der Import hält eine Web Lock
-  function dropKeys(id, n) { return idbDo("readwrite", function (os) { for (var i = 0; i < n; i++) os.delete(id + "/k" + i); }); }
-  function savedBook(id) {                                // Buch oder Notizordner mit dieser ID bereits gespeichert?
-    return ["books", "vaults"].some(function (k) { var l = store.get(k, []); return Array.isArray(l) && l.some(function (b) { return b && b.id === id; }); });
+  // from: nur beim Hinzufügen zu einem bestehenden Notizordner: erste neue Datei-Nummer (die schon gespeicherten Dateien bleiben unberührt)
+  function setPending(b, n, from) {
+    var m = { id: b.id, n: n, ts: Date.now(), lk: hasLocks ? 1 : 0 };    // lk: der Import hält eine Web Lock
+    if (from != null) m.from = from;
+    store.set("pending", m);
+  }
+  function dropKeys(id, n, from, keep) {
+    var a = from || 0;
+    return idbDo("readwrite", function (os) { for (var i = a; i < a + n; i++) if (!(keep && keep["k" + i])) os.delete(id + "/k" + i); });
+  }
+  function savedEntry(id) {                               // gespeichertes Buch oder gespeicherter Notizordner mit dieser ID (oder null)
+    var hit = null;
+    ["books", "vaults"].forEach(function (k) { var l = store.get(k, []); if (Array.isArray(l)) l.forEach(function (b) { if (b && b.id === id) hit = b; }); });
+    return hit;
   }
   function reclaimPending() {
     var p = store.get("pending", null);
@@ -1257,8 +1270,11 @@ body.pod .seekrow { display: flex; }
     function sweep() {                                    // nur aufrufen, wenn kein Import mehr aktiv ist; prüft den Zustand erneut
       var c = store.get("pending", null);
       if (!c || c.id !== p.id) return null;                                      // Marker inzwischen entfernt oder ersetzt
-      if (savedBook(p.id)) { store.set("pending", null); return null; }          // Import war fertig, nur der Marker blieb
-      return dropKeys(p.id, p.n || 0).then(function () {
+      var e = savedEntry(p.id);
+      if (e && p.from == null) { store.set("pending", null); return null; }      // Import war fertig, nur der Marker blieb
+      var keep = null;
+      if (e) { keep = {}; (e.files || e.tracks || []).forEach(function (f) { keep[f.id] = 1; }); }   // Hinzufügen unterbrochen: nur nicht eingetragene neue Dateien entfernen
+      return dropKeys(p.id, p.n || 0, p.from, keep).then(function () {
         var d = store.get("pending", null); if (d && d.id === p.id) store.set("pending", null);
       }, function () {});                                                        // Marker bleibt, der nächste Start versucht es erneut
     }
@@ -1449,7 +1465,7 @@ body.pod .seekrow { display: flex; }
   var mdPos = obj(store.get("mdpos", {}));              // "<Vault-ID>/<Pfad>" -> Scrollposition
   var mdFs = Math.min(1.6, Math.max(.8, +store.get("mdfs", 1) || 1));
   var openVaultId = null, openNote = null, noteStack = [], vIdx = null, mdTexts = null, noteReq = 0, imgUrls = [];
-  var mdQuery = "", treeOpen = {}, scrollT = null, refreshId = null, searchReq = 0;
+  var mdQuery = "", treeOpen = {}, scrollT = null, refreshId = null, addTarget = null, searchReq = 0;   // addTarget: { id, dir } beim Hinzufügen zu einem bestehenden Ordner
   var noteBody = $("noteBody");
   var MD_RE = /\.(md|markdown)$/i, MD_IMG = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i;
 
@@ -1538,8 +1554,8 @@ body.pod .seekrow { display: flex; }
   }
   function codeBlock(code, lang) {
     var l = (lang || "").toLowerCase();
-    return '<pre class="code"><button class="copy" type="button" data-copy aria-label="Code kopieren">Kopieren</button>' + (l ? '<span class="lang">' + esc(l) + "</span>" : "") +
-      "<code>" + hl(code, l) + "</code></pre>";
+    return '<div class="codebox"><div class="chead">' + (l ? '<span class="lang">' + esc(l) + "</span>" : "<span></span>") +
+      '<button class="copy" type="button" data-copy aria-label="Code kopieren">Kopieren</button></div><pre class="code"><code>' + hl(code, l) + "</code></pre></div>";
   }
 
   /* -- Markdown: Inline -- */
@@ -1951,7 +1967,7 @@ body.pod .seekrow { display: flex; }
     noteBody.innerHTML = '<div class="back-row">' + pb("vback", "0", "← Ordner") + '</div><div class="show-head"><div class="bk-icon big">' + NOTE_SVG + '</div><div class="tx"><h2>' + esc(v.name) + "</h2><p>" + s.md + " Notizen" +
       (s.img ? " · " + s.img + " Bilder" : "") + " · " + fmtSize(s.size) + "</p></div></div>" +
       (importing && importing.kind === "vault" ? '<div class="hint" style="margin:0 2px 10px">Wird aktualisiert … ' + importing.done + " von " + importing.total + "</div>" : "") +
-      '<div class="kinds">' + (v.last ? pb("vresume", v.id, "Weiter: " + esc(noteTitle(v.last)), true) : "") + pb("vrefresh", v.id, "Aktualisieren") + pb("vrename", v.id, "Umbenennen") + pb("vdel", v.id, "Löschen") + "</div>" +
+      '<div class="kinds">' + (v.last ? pb("vresume", v.id, "Weiter: " + esc(noteTitle(v.last)), true) : "") + pb("vaddfiles", v.id, "Dateien hinzufügen") + pb("vadddir", v.id, "Ordner hinzufügen") + pb("vrefresh", v.id, "Aktualisieren") + pb("vrename", v.id, "Umbenennen") + pb("vdel", v.id, "Löschen") + "</div>" +
       '<div class="tools"><label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>' +
       '<input id="mdq" type="search" placeholder="In Notizen suchen" autocomplete="off" aria-label="In Notizen suchen" value="' + esc(mdQuery) + '"></label></div><div id="mdRes"></div>';
     renderRes(v);
@@ -1994,15 +2010,64 @@ body.pod .seekrow { display: flex; }
   }
 
   /* -- Hinzufügen / Aktualisieren / Löschen -- */
-  function importVault(fileList, forcedName, replaceId) {
-    var all = Array.prototype.slice.call(fileList), items = [];
-    all.forEach(function (f) {
+  function collectItems(fileList, keepTop) {             // keepTop: der gewählte Ordner bleibt als Unterordner erhalten
+    var items = [];
+    Array.prototype.slice.call(fileList).forEach(function (f) {
       var rel = f.webkitRelativePath || f.name, parts = rel.split("/");
-      if (f.webkitRelativePath) parts.shift();            // der Ordnername steht schon im Titel
+      if (f.webkitRelativePath && !keepTop) parts.shift();            // der Ordnername steht schon im Titel
       if (!parts.length || parts.some(function (s) { return s.charAt(0) === "."; })) return;      // versteckt: .obsidian, .git, .trash ...
       var path = parts.join("/"), kind = MD_RE.test(path) ? "md" : MD_IMG.test(path) ? "img" : null;
       if (kind) items.push({ f: f, path: path, kind: kind, size: f.size, mod: f.lastModified || 0 });
     });
+    return items;
+  }
+  // Dateien zu einem bestehenden Ordner hinzufügen: neue Pfade bekommen neue Schlüssel, vorhandene Pfade werden ersetzt
+  function addToVault(v, fileList, keepTop) {
+    var items = collectItems(fileList, keepTop);
+    if (!items.length) { toast("Keine Markdown-Dateien oder Bilder gefunden.", 5000); return; }
+    if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
+    var byPath = {}, next = 0;
+    v.files.forEach(function (f) { byPath[f.path.toLowerCase()] = f; next = Math.max(next, (+f.id.slice(1) || 0) + 1); });
+    var start = next, fresh = 0, seen = {};
+    var work = [];
+    items.sort(function (a, b) { return natCmp(a.path, b.path); }).forEach(function (it) {
+      var lp = it.path.toLowerCase(); if (seen[lp]) return; seen[lp] = 1;
+      var ex = byPath[lp];
+      if (ex) work.push({ it: it, f: ex, isNew: false });
+      else { work.push({ it: it, f: { id: "k" + next++, path: it.path, kind: it.kind, size: it.size, mod: it.mod }, isNew: true }); fresh++; }
+    });
+    importing = { kind: "vault", name: v.name, done: 0, total: work.length }; renderNotesIfVisible();
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
+    var replaced = work.length - fresh;
+    function copyAll() {
+      return (function step(i) {
+        if (i >= work.length) return null;
+        var w = work[i];
+        return idbDo("readwrite", function (os) { return os.put(w.it.f, fid(v, w.f)); }).then(function () {
+          importing.done = i + 1; if (fresh) setPending(v, fresh, start); renderNotesIfVisible(); return step(i + 1);
+        });
+      })(0);
+    }
+    function discardNew() { return (fresh ? dropKeys(v.id, fresh, start) : Promise.resolve()).then(function () { store.set("pending", null); }, function () {}); }
+    withImportLock(v.id, function () {
+      if (fresh) setPending(v, fresh, start);               // vor der ersten Datei: neue Schlüssel ab "start" sind auffindbar
+      return Promise.resolve(copyAll()).then(function () {
+        if (vaults.indexOf(v) < 0) return discardNew();      // der Ordner wurde währenddessen gelöscht
+        work.forEach(function (w) { if (w.isNew) v.files.push(w.f); else { w.f.size = w.it.size; w.f.mod = w.it.mod; } });
+        saveVaults(); store.set("pending", null);
+        return null;
+      }, function (err) { return discardNew().then(function () { throw err; }); });
+    }).then(function () {
+      importing = null;
+      if (vaults.indexOf(v) >= 0) {
+        vIdx = openVaultId === v.id ? indexVault(v) : vIdx; mdTexts = null;
+        toast(fresh + " neu" + (replaced ? ", " + replaced + " ersetzt" : "") + " in „" + esc(v.name) + "“.", 4000);
+      }
+      renderNotesIfVisible();
+    }, function () { importing = null; toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderNotesIfVisible(); });
+  }
+  function importVault(fileList, forcedName, replaceId) {
+    var all = Array.prototype.slice.call(fileList), items = collectItems(fileList, false);
     var mdCount = items.filter(function (x) { return x.kind === "md"; }).length;
     if (!mdCount) { toast("Keine Markdown-Dateien gefunden.", 5000); return; }
     if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
@@ -2068,10 +2133,15 @@ body.pod .seekrow { display: flex; }
   }
 
   /* -- Bedienung -- */
-  $("pickMd").addEventListener("change", function (e) { var files = Array.prototype.slice.call(e.target.files), id = refreshId; refreshId = null; e.target.value = ""; importVault(files, null, id); });
+  $("pickMd").addEventListener("change", function (e) {
+    var files = Array.prototype.slice.call(e.target.files), id = refreshId, add = addTarget; refreshId = null; addTarget = null; e.target.value = "";
+    if (!files.length) return;
+    if (add && findVault(add.id)) addToVault(findVault(add.id), files, true); else importVault(files, null, id);
+  });
   $("pickMdFiles").addEventListener("change", function (e) {
     if (!e.target.files.length) return;
-    var files = Array.prototype.slice.call(e.target.files); e.target.value = "";
+    var files = Array.prototype.slice.call(e.target.files), add = addTarget; addTarget = null; e.target.value = "";
+    if (add && findVault(add.id)) { addToVault(findVault(add.id), files, false); return; }
     var n = prompt("Name des Ordners:", "Meine Notizen");
     if (n !== null) importVault(files, n.trim() || "Meine Notizen", null);
   });
@@ -2092,20 +2162,22 @@ body.pod .seekrow { display: flex; }
     if ((t = e.target.closest("a[data-nl]"))) { e.preventDefault(); if (v) showNote(v, t.getAttribute("data-nl"), { push: true, frag: t.getAttribute("data-nh") || "" }); return; }
     if ((t = e.target.closest("[data-goto]"))) { e.preventDefault(); scrollToId(t.getAttribute("data-goto")); return; }
     if ((t = e.target.closest("[data-copy]"))) {
-      var code = t.parentNode.querySelector("code");
+      var box = t.closest(".codebox"), code = box && box.querySelector("code");
       copyText(code ? code.textContent : "").then(function () { t.textContent = "Kopiert ✓"; setTimeout(function () { t.textContent = "Kopieren"; }, 1500); }, function () { toast("Kopieren nicht möglich.", 3000); });
       return;
     }
     if ((t = e.target.closest("a.unres, .unres"))) return;
     t = e.target.closest("[data-act]"); if (!t || t.disabled) return;
     var act = t.getAttribute("data-act"), id = t.getAttribute("data-id"), vv = findVault(id) || v;
-    if (act === "vadd") { refreshId = null; $("pickMd").click(); }
-    else if (act === "vfiles") $("pickMdFiles").click();
+    if (act === "vadd") { refreshId = null; addTarget = null; $("pickMd").click(); }
+    else if (act === "vfiles") { refreshId = null; addTarget = null; $("pickMdFiles").click(); }
+    else if (act === "vaddfiles" && vv) { refreshId = null; addTarget = { id: vv.id, dir: false }; $("pickMdFiles").click(); }
+    else if (act === "vadddir" && vv) { refreshId = null; addTarget = { id: vv.id, dir: true }; $("pickMd").click(); }
     else if (act === "vopen" && vv) openVault(vv, null);
     else if (act === "vresume" && vv) openVault(vv, vv.last);
     else if (act === "vdel" && vv) deleteVault(vv);
     else if (act === "vback") { openVaultId = null; openNote = null; vIdx = null; renderNotes(); }
-    else if (act === "vrefresh" && vv) { refreshId = vv.id; toast("Wähle den Ordner erneut aus; geänderte Notizen werden übernommen.", 5000); $("pickMd").click(); }
+    else if (act === "vrefresh" && vv) { refreshId = vv.id; addTarget = null; toast("Wähle den Ordner erneut aus; geänderte Notizen werden übernommen.", 5000); $("pickMd").click(); }
     else if (act === "vrename" && vv) { var nn = prompt("Name des Ordners:", vv.name); if (nn && nn.trim()) { vv.name = nn.trim(); saveVaults(); renderNotes(); } }
     else if (act === "nopen" && v) { noteStack = []; showNote(v, t.getAttribute("data-p"), {}); }
     else if (act === "nback" && v) {
