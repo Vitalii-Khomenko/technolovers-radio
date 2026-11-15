@@ -1157,27 +1157,40 @@ body.pod .seekrow { display: flex; }
   function podReset() {                                   // Player leeren, z. B. wenn das laufende Buch gelöscht oder zurückgesetzt wird
     playReq++; clearSrc();
     podWant = false; curEp = null;
+    if (mode !== "pod") return;                           // das Radio belegt den Player/Dock: nur die alte Buch-Quelle lösen, Dock nicht anfassen
     $("dockT").textContent = "Kein Sender gewählt"; podStatus("Technolovers.fm", false); syncPlayIcon();
   }
 
   /* -- Hinzufügen -- */
-  // Während eines Imports steht ein Marker "tl_pending" im localStorage ({ id, n, ts, sid }). Bricht der Import ab (Tab geschlossen,
-  // Seite neu geladen), liegen schon Dateien im Speicher, aber noch kein Buch in der Bibliothek: beim nächsten Start werden sie entfernt.
-  var PENDING_STALE = 120000;
-  function sid() {
-    try { var x = sessionStorage.getItem("tl_sid"); if (!x) { x = Math.random().toString(36).slice(2); sessionStorage.setItem("tl_sid", x); } return x; } catch (e) { return "-"; }
-  }
-  function setPending(b, n) { store.set("pending", { id: b.id, n: n, ts: Date.now(), sid: sid() }); }
+  // Während eines Imports steht ein Marker "tl_pending" im localStorage ({ id, n, ts }). Bricht der Import ab (Tab geschlossen, Seite neu
+  // geladen), liegen schon Dateien im Speicher, aber noch kein Buch in der Bibliothek: beim nächsten Start werden sie entfernt.
+  // Ob ein Import noch läuft, zeigt eine exklusive Web-Lock "tl-import-<id>": sie hält der importierende Tab und der Browser gibt sie
+  // beim Schließen oder Absturz selbst frei. (Alter des Markers oder sessionStorage sagen darüber nichts, ein duplizierter Tab erbt z. B. beides.)
+  // Ohne Web Locks wird nur ein sehr alter Marker aufgeräumt.
+  var PENDING_STALE = 600000;
+  var hasLocks = !!(navigator.locks && navigator.locks.request);
+  function withImportLock(id, work) { return hasLocks ? navigator.locks.request("tl-import-" + id, function () { return work(); }) : work(); }
+  function setPending(b, n) { store.set("pending", { id: b.id, n: n, ts: Date.now(), lk: hasLocks ? 1 : 0 }); }   // lk: der Import hält eine Web Lock
   function dropKeys(id, n) { return idbDo("readwrite", function (os) { for (var i = 0; i < n; i++) os.delete(id + "/k" + i); }); }
+  function savedBook(id) { var l = store.get("books", []); return Array.isArray(l) && l.some(function (b) { return b && b.id === id; }); }
   function reclaimPending() {
     var p = store.get("pending", null);
     if (!p || !p.id) return;
-    if (findBook(p.id)) { store.set("pending", null); return; }                           // Buch wurde noch gespeichert, nur der Marker blieb
-    if (p.sid !== sid() && Date.now() - (p.ts || 0) < PENDING_STALE) return;               // läuft vielleicht gerade in einem anderen Tab
-    dropKeys(p.id, p.n || 0).then(function () {
-      var c = store.get("pending", null); if (c && c.id === p.id) store.set("pending", null);
-    }, function () {});                                                                    // Marker bleibt, nächster Start versucht es erneut
+    function sweep() {                                    // nur aufrufen, wenn kein Import mehr aktiv ist; prüft den Zustand erneut
+      var c = store.get("pending", null);
+      if (!c || c.id !== p.id) return null;                                      // Marker inzwischen entfernt oder ersetzt
+      if (savedBook(p.id)) { store.set("pending", null); return null; }          // Import war fertig, nur der Marker blieb
+      return dropKeys(p.id, p.n || 0).then(function () {
+        var d = store.get("pending", null); if (d && d.id === p.id) store.set("pending", null);
+      }, function () {});                                                        // Marker bleibt, der nächste Start versucht es erneut
+    }
+    // Nur ein Marker mit lk wurde unter einer Web Lock geschrieben: dort beweist eine freie Lock, dass der Import beendet ist. Marker ohne lk stammen
+    // von einer älteren Version (kein Lock, z. B. in einem noch offenen Tab) oder aus einem Browser ohne Web Locks: eine freie Lock sagt darüber nichts,
+    // also nur sehr alte Marker aufräumen (ts wird bei jeder kopierten Datei erneuert).
+    if (p.lk && hasLocks) navigator.locks.request("tl-import-" + p.id, { ifAvailable: true }, function (lock) { return lock ? sweep() : null; }).catch(function () {});
+    else if (Date.now() - (p.ts || 0) > PENDING_STALE) sweep();
   }
+
   function importFiles(fileList, forcedName) {
     var list = Array.prototype.slice.call(fileList).filter(function (f) { return AUDIO_RE.test(f.name) || /^audio\//.test(f.type || ""); });
     if (!list.length) { toast("Keine Audiodateien gefunden."); return; }
@@ -1192,20 +1205,27 @@ body.pod .seekrow { display: flex; }
 
     var b = { id: "b" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, created: Date.now(), cur: null, tracks: [] };
     importing = { name: name, done: 0, total: items.length }; openBookId = null; renderBook();
-    setPending(b, items.length);                          // vor der ersten Datei: so ist jede gespeicherte Kopie auffindbar
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
-    (function next(i) {
-      if (i >= items.length) return null;
-      var it = items[i], t = { id: "k" + i, name: it.name, path: it.rel, size: it.size, mod: it.mod };
-      return idbDo("readwrite", function (os) { return os.put(it.f, fid(b, t)); }).then(function () {
-        b.tracks.push(t); importing.done = i + 1; setPending(b, items.length); renderBook(); return next(i + 1);
+    function copyAll() {
+      return (function next(i) {
+        if (i >= items.length) return null;
+        var it = items[i], t = { id: "k" + i, name: it.name, path: it.rel, size: it.size, mod: it.mod };
+        return idbDo("readwrite", function (os) { return os.put(it.f, fid(b, t)); }).then(function () {
+          b.tracks.push(t); importing.done = i + 1; setPending(b, items.length); renderBook(); return next(i + 1);
+        });
+      })(0);
+    }
+    withImportLock(b.id, function () {
+      setPending(b, items.length);                        // erst nach der Lock und vor der ersten Datei: so ist jede Kopie auffindbar
+      return Promise.resolve(copyAll()).then(function () {
+        books.push(b); saveBooks(); store.set("pending", null);
+      }, function (err) {                                 // Fehlschlag: schon kopierte Dateien noch unter der Lock wieder entfernen
+        return dropKeys(b.id, items.length).then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
       });
-    })(0).then(function () {
-      books.push(b); saveBooks(); store.set("pending", null); importing = null; openBookId = b.id; renderBook();
-    }).catch(function () {
-      importing = null;
-      dropKeys(b.id, items.length).then(function () { store.set("pending", null); }, function () {});   // schlägt das Aufräumen fehl, holt der nächste Start es nach
-      toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook();
+    }).then(function () {
+      importing = null; openBookId = b.id; renderBook();
+    }, function () {
+      importing = null; toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook();
     });
   }
   function deleteBook(b) {
