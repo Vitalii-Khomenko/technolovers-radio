@@ -954,7 +954,9 @@ body.pod .seekrow { display: flex; }
     podMedia(); syncPlayIcon(); refreshPod();
     resolveSrc(ep).then(function (src) {
       if (my !== playReq || mode !== "pod") return;       // inzwischen andere Folge gewählt oder zum Radio gewechselt
-      if (!src) { podWant = false; podStatus("Datei nicht gefunden. Füge das Buch erneut hinzu.", true); syncPlayIcon(); refreshPod(); return; }
+      if (!src) {                                         // Datei fehlt: alte Quelle verwerfen, sonst würde Play sie unter dem neuen Titel abspielen
+        clearSrc(); podWant = false; podStatus("Datei nicht gefunden. Füge das Buch erneut hinzu.", true); syncPlayIcon(); refreshPod(); return;
+      }
       pendingSeek = pos[ep.id] || 0;
       pod.src = src; srcEp = ep; pod.playbackRate = rate;
       var p = pod.play();
@@ -1148,13 +1150,34 @@ body.pod .seekrow { display: flex; }
     var el = bookBody.querySelector('[data-trk="' + t.id + '"]');
     if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
   }
-  function podReset() {                                   // Player leeren, z. B. wenn das laufende Buch gelöscht wird
-    playReq++; pod.pause(); pod.removeAttribute("src"); try { pod.load(); } catch (e) {}
-    podWant = false; curEp = null; srcEp = null; pendingSeek = 0;
+  function clearSrc() {                                   // geladene Quelle verwerfen, damit nichts Altes weiterspielt oder gespeichert wird
+    pod.pause(); pod.removeAttribute("src"); try { pod.load(); } catch (e) {}
+    srcEp = null; pendingSeek = 0;
+  }
+  function podReset() {                                   // Player leeren, z. B. wenn das laufende Buch gelöscht oder zurückgesetzt wird
+    playReq++; clearSrc();
+    podWant = false; curEp = null;
     $("dockT").textContent = "Kein Sender gewählt"; podStatus("Technolovers.fm", false); syncPlayIcon();
   }
 
   /* -- Hinzufügen -- */
+  // Während eines Imports steht ein Marker "tl_pending" im localStorage ({ id, n, ts, sid }). Bricht der Import ab (Tab geschlossen,
+  // Seite neu geladen), liegen schon Dateien im Speicher, aber noch kein Buch in der Bibliothek: beim nächsten Start werden sie entfernt.
+  var PENDING_STALE = 120000;
+  function sid() {
+    try { var x = sessionStorage.getItem("tl_sid"); if (!x) { x = Math.random().toString(36).slice(2); sessionStorage.setItem("tl_sid", x); } return x; } catch (e) { return "-"; }
+  }
+  function setPending(b, n) { store.set("pending", { id: b.id, n: n, ts: Date.now(), sid: sid() }); }
+  function dropKeys(id, n) { return idbDo("readwrite", function (os) { for (var i = 0; i < n; i++) os.delete(id + "/k" + i); }); }
+  function reclaimPending() {
+    var p = store.get("pending", null);
+    if (!p || !p.id) return;
+    if (findBook(p.id)) { store.set("pending", null); return; }                           // Buch wurde noch gespeichert, nur der Marker blieb
+    if (p.sid !== sid() && Date.now() - (p.ts || 0) < PENDING_STALE) return;               // läuft vielleicht gerade in einem anderen Tab
+    dropKeys(p.id, p.n || 0).then(function () {
+      var c = store.get("pending", null); if (c && c.id === p.id) store.set("pending", null);
+    }, function () {});                                                                    // Marker bleibt, nächster Start versucht es erneut
+  }
   function importFiles(fileList, forcedName) {
     var list = Array.prototype.slice.call(fileList).filter(function (f) { return AUDIO_RE.test(f.name) || /^audio\//.test(f.type || ""); });
     if (!list.length) { toast("Keine Audiodateien gefunden."); return; }
@@ -1169,18 +1192,19 @@ body.pod .seekrow { display: flex; }
 
     var b = { id: "b" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, created: Date.now(), cur: null, tracks: [] };
     importing = { name: name, done: 0, total: items.length }; openBookId = null; renderBook();
+    setPending(b, items.length);                          // vor der ersten Datei: so ist jede gespeicherte Kopie auffindbar
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
     (function next(i) {
       if (i >= items.length) return null;
       var it = items[i], t = { id: "k" + i, name: it.name, path: it.rel, size: it.size, mod: it.mod };
       return idbDo("readwrite", function (os) { return os.put(it.f, fid(b, t)); }).then(function () {
-        b.tracks.push(t); importing.done = i + 1; renderBook(); return next(i + 1);
+        b.tracks.push(t); importing.done = i + 1; setPending(b, items.length); renderBook(); return next(i + 1);
       });
     })(0).then(function () {
-      books.push(b); saveBooks(); importing = null; openBookId = b.id; renderBook();
+      books.push(b); saveBooks(); store.set("pending", null); importing = null; openBookId = b.id; renderBook();
     }).catch(function () {
       importing = null;
-      idbDo("readwrite", function (os) { b.tracks.forEach(function (t) { os.delete(fid(b, t)); }); }).catch(function () {});
+      dropKeys(b.id, items.length).then(function () { store.set("pending", null); }, function () {});   // schlägt das Aufräumen fehl, holt der nächste Start es nach
       toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook();
     });
   }
@@ -1284,6 +1308,7 @@ body.pod .seekrow { display: flex; }
     else if (act === "bdel") deleteBook(b);
     else if (act === "brename") { var n = prompt("Name des Buchs:", b.name); if (n && n.trim()) { b.name = n.trim(); saveBooks(); renderBook(); } }
     else if (act === "bdone" || act === "breset") {
+      if (curEp && curEp.bookId === b.id) podReset();     // geladenes Kapitel darf keine alte Position zurückschreiben oder fortsetzen
       b.tracks.forEach(function (x) { var k = fid(b, x); delete pos[k]; if (act === "bdone") done[k] = 1; else delete done[k]; });
       if (act === "breset") { b.cur = null; saveBooks(); }
       store.set("pos", pos); store.set("done", done); renderBook();
@@ -1315,6 +1340,8 @@ body.pod .seekrow { display: flex; }
     dragTid = null;
     Array.prototype.forEach.call(bookBody.querySelectorAll(".over, .dragging"), function (x) { x.classList.remove("over", "dragging"); });
   });
+
+  reclaimPending();
 
   /* ---------- Start ---------- */
   var barsEl = $("bars");
