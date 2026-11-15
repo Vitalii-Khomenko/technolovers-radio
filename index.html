@@ -170,7 +170,23 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 
 .show-head .tx { flex: 1 1 180px; min-width: 0; }
 .show-head h2 { margin: 0; font: 600 1.2rem/1.2 var(--font-display); overflow-wrap: anywhere; }
 .show-head p { margin: 4px 0 0; color: var(--muted); font-size: .85rem; }
-.kinds { display: flex; gap: 8px; margin-bottom: 12px; }
+.kinds { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.vh { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+select.pbtn { appearance: none; -webkit-appearance: none; }
+:root { --done: hsl(150 55% 64%); }
+.bk-icon { width: 56px; height: 56px; border-radius: 12px; display: grid; place-items: center; background: hsl(var(--h) 60% 32% / .45); color: var(--accent); }
+.bk-icon.big { width: 88px; height: 88px; border-radius: 16px; }
+.bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.12); margin-top: 8px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.pod-row.finished .bar i { background: var(--done); }
+.pod-row.finished .pod-ti { color: var(--done); }
+.trk { grid-template-columns: 34px 1fr auto; cursor: grab; }
+.trk .no { text-align: center; color: var(--muted); font-size: .82rem; font-variant-numeric: tabular-nums; }
+.trk.done { border-color: hsl(150 40% 45% / .35); background: hsl(150 45% 40% / .1); }
+.trk.done .pod-ti, .trk.done .no { color: var(--done); }
+.trk.done .pod-ti { font-weight: 500; }
+.trk.over { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.trk.dragging { opacity: .45; }
 .hint { color: var(--muted); font-size: .78rem; margin: 12px 2px 0; line-height: 1.5; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + var(--safe-b)); z-index: 20; max-width: min(520px, calc(100% - 28px)); padding: 12px 16px; border-radius: 16px; background: rgba(14,19,40,.94); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.5); font-size: .85rem; line-height: 1.4; }
 .toast a { color: var(--accent); }
@@ -193,6 +209,7 @@ body.pod .seekrow { display: flex; }
   body.pod .toast { bottom: calc(200px + var(--safe-b)); }
   .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .pod-row { grid-template-columns: 56px 1fr; }
+  .trk { grid-template-columns: 30px 1fr; }
   .pod-act { grid-column: 1 / -1; justify-content: flex-end; flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -210,6 +227,7 @@ body.pod .seekrow { display: flex; }
   <nav class="modes" id="modes" aria-label="Bereich">
     <button data-mode="radio" aria-pressed="true">Radio</button>
     <button data-mode="pod" aria-pressed="false">Podcasts</button>
+    <button data-mode="book" aria-pressed="false">Bücher</button>
   </nav>
 
   <div id="radioView">
@@ -249,6 +267,15 @@ body.pod .seekrow { display: flex; }
     <div id="podBody"></div>
     <footer class="note">
       Suche und Folgenlisten kommen von der iTunes Search API, die Audiodateien direkt vom jeweiligen Anbieter. Heruntergeladene Folgen, Abos, Wiedergabeliste und Hörfortschritt bleiben nur in diesem Browser gespeichert. Erlaubt ein Anbieter keinen direkten Download, lässt sich die Datei stattdessen im Browser öffnen.
+    </footer>
+  </div>
+
+  <div id="bookView" hidden>
+    <div class="pod-top"><div id="bookBody"></div></div>
+    <input class="vh" type="file" id="pickDir" webkitdirectory multiple tabindex="-1" aria-hidden="true">
+    <input class="vh" type="file" id="pickFiles" accept="audio/*,.m4b" multiple tabindex="-1" aria-hidden="true">
+    <footer class="note">
+      Hörbücher werden als Kopie im Speicher dieses Browsers abgelegt, dort bleiben Reihenfolge, Hörfortschritt und „gehört“-Markierungen erhalten. Das braucht so viel Platz wie die Dateien selbst. Löschst du die Website-Daten, sind die Bücher weg; die Originale auf dem Gerät bleiben unberührt.
     </footer>
   </div>
 </main>
@@ -605,7 +632,7 @@ body.pod .seekrow { display: flex; }
   /* ---------- Podcasts ---------- */
   // Suche und Folgenlisten: iTunes Search API (kostenlos, ohne Schlüssel, CORS erlaubt).
   var API = "https://itunes.apple.com/";
-  var mode = "radio";                     // was gerade im Player läuft: "radio" | "pod"
+  var mode = "radio";                     // was gerade im Player läuft: "radio" | "pod" ("pod" = Datei-Player für Podcasts und Hörbücher)
   var podWant = false;                    // Podcast soll laufen (Gegenstück zu wantPlay)
   var pod = new Audio();
   pod.preload = "none";
@@ -734,7 +761,7 @@ body.pod .seekrow { display: flex; }
     else if (podTab === "queue") renderQueue();
     else renderDl();
   }
-  function refreshPod() { if (view === "pod") renderPod(); }
+  function refreshPod() { if (view === "pod") renderPod(); else if (view === "book") renderBook(); }   // aktualisiert die sichtbare Medienliste
 
   function feedKey() { return Object.keys(subs).sort().join(","); }
   function loadFeed() {
@@ -907,6 +934,7 @@ body.pod .seekrow { display: flex; }
   function podStatus(text, isErr) { var el = $("dockS"); el.textContent = text; el.classList.toggle("err", !!isErr); }
   function httpsUrl(u) { return u.replace(/^http:\/\//i, "https://"); }
   function resolveSrc(ep) {
+    if (ep.kind === "book") return bookSrc(ep);
     if (!dlMeta[ep.id]) return Promise.resolve(httpsUrl(ep.url));
     return idbDo("readonly", function (os) { return os.get(ep.id); }).then(function (blob) {
       if (!blob) return ep.url;
@@ -915,16 +943,18 @@ body.pod .seekrow { display: flex; }
     }).catch(function () { return ep.url; });
   }
   function playEp(ep) {
-    if (!ep || !ep.url) return;
+    if (!ep || !(ep.url || ep.kind === "book")) return;
     if (mode !== "pod") { if (wantPlay) stop(); document.body.classList.remove("playing"); setMode("pod"); }
     else if (srcEp) { savePos(); pod.pause(); }          // vorherige Folge: Fortschritt sichern, bevor curEp wechselt
     var my = ++playReq;
     curEp = ep; podWant = true; rawTried = false;
+    if (ep.kind === "book") rememberBookTrack(ep);
     $("dockT").textContent = ep.title; podStatus(ep.show, false);
     document.title = ep.title + " · Technolovers Radio";
     podMedia(); syncPlayIcon(); refreshPod();
     resolveSrc(ep).then(function (src) {
       if (my !== playReq || mode !== "pod") return;       // inzwischen andere Folge gewählt oder zum Radio gewechselt
+      if (!src) { podWant = false; podStatus("Datei nicht gefunden. Füge das Buch erneut hinzu.", true); syncPlayIcon(); refreshPod(); return; }
       pendingSeek = pos[ep.id] || 0;
       pod.src = src; srcEp = ep; pod.playbackRate = rate;
       var p = pod.play();
@@ -945,6 +975,7 @@ body.pod .seekrow { display: flex; }
     return queue[i + d] || null;
   }
   function podSkip(dir) {
+    if (curEp && curEp.kind === "book") { bookSkip(dir); return; }
     if (dir > 0) { var n = nextInQueue(1); if (n) playEp(n); else toast("Ende der Wiedergabeliste.", 3000); return; }
     var p = (pod.currentTime || 0) > 5 ? null : nextInQueue(-1);
     if (p) playEp(p); else if (curEp) pod.currentTime = 0;
@@ -965,7 +996,7 @@ body.pod .seekrow { display: flex; }
   }
   function podMedia() {
     if (!("mediaSession" in navigator) || !curEp) return;
-    try { navigator.mediaSession.metadata = new MediaMetadata({ title: curEp.title, artist: curEp.show, album: "Podcast", artwork: curEp.art ? [{ src: curEp.art }] : [] }); } catch (e) {}
+    try { navigator.mediaSession.metadata = new MediaMetadata({ title: curEp.title, artist: curEp.show, album: curEp.kind === "book" ? "Hörbuch" : "Podcast", artwork: curEp.art ? [{ src: curEp.art }] : [] }); } catch (e) {}
   }
 
   pod.addEventListener("loadedmetadata", function () {
@@ -993,15 +1024,16 @@ body.pod .seekrow { display: flex; }
     if (!rawTried && /^http:\/\//i.test(curEp.url) && pod.src !== curEp.url && !dlMeta[curEp.id]) {   // https-Variante fehlt: Original versuchen
       rawTried = true; pod.src = curEp.url; pod.play().catch(function () {}); return;
     }
-    podWant = false; podStatus("Folge nicht abspielbar. Versuche eine andere.", true); syncPlayIcon(); refreshPod();
+    podWant = false; podStatus(curEp.kind === "book" ? "Datei nicht abspielbar." : "Folge nicht abspielbar. Versuche eine andere.", true); syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("ended", function () {
     if (mode !== "pod" || !curEp || curEp !== srcEp) return;
     delete pos[curEp.id]; done[curEp.id] = 1; store.set("pos", pos); store.set("done", done);
     podWant = false;
-    var n = nextInQueue(1);
-    if (n) playEp(n); else { syncPlayIcon(); refreshPod(); }
+    var isBook = curEp.kind === "book", n = isBook ? bookNeighbor(curEp, 1) : nextInQueue(1);
+    if (n) playEp(n); else { if (isBook) toast("Ende des Buchs.", 4000); syncPlayIcon(); refreshPod(); }
   });
+  window.addEventListener("pagehide", savePos);       // Fortschritt auch beim Schließen der Seite sichern
 
   seekEl.addEventListener("input", function () { if (curEp) { pod.currentTime = +seekEl.value; seekUi(); } });
   $("back15").addEventListener("click", function () { podSeek(-15); });
@@ -1047,12 +1079,242 @@ body.pod .seekrow { display: flex; }
   });
 
   function setView(v) {
-    view = v === "pod" ? "pod" : "radio"; store.set("view", view);
-    $("radioView").hidden = view !== "radio"; $("podView").hidden = view !== "pod";
+    view = v === "pod" || v === "book" ? v : "radio"; store.set("view", view);
+    $("radioView").hidden = view !== "radio"; $("podView").hidden = view !== "pod"; $("bookView").hidden = view !== "book";
     Array.prototype.forEach.call($("modes").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-mode") === view)); });
-    if (view === "radio") renderGrid(); else { $("count").textContent = ""; renderPod(); }
+    if (view === "radio") renderGrid(); else { $("count").textContent = ""; if (view === "pod") renderPod(); else renderBook(); }
   }
   $("modes").addEventListener("click", function (e) { var b = e.target.closest("[data-mode]"); if (b) setView(b.getAttribute("data-mode")); });
+
+  /* ---------- Hörbücher ---------- */
+  // Ein Buch = ein Ordner mit Audiodateien. Die Dateien liegen als Kopie in IndexedDB (Schlüssel "<Buch-ID>/<Titel-ID>"),
+  // Reihenfolge, gehört-Status und Position im localStorage. Wiedergabe über denselben Datei-Player wie die Podcasts.
+  var books = store.get("books", []);
+  if (!Array.isArray(books)) books = [];
+  books = books.filter(function (b) { return b && b.id && Array.isArray(b.tracks); });
+  var openBookId = null, importing = null, dragTid = null;
+  var bookBody = $("bookBody");
+  var AUDIO_RE = /\.(mp3|m4a|m4b|aac|ogg|oga|opus|wav|flac)$/i;
+  var BOOK_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5C6.5 4.3 9.5 4.5 12 6.2c2.5-1.7 5.5-1.9 8-.7V19c-2.5-1.2-5.5-1-8 .7-2.5-1.7-5.5-1.9-8-.7z"/><path d="M12 6.2v13.5"/></svg>';
+  var SORTS = [["name", "Name A–Z (1, 2, 10)"], ["name-desc", "Name Z–A"], ["date", "Datum: älteste zuerst"], ["date-desc", "Datum: neueste zuerst"],
+    ["size-desc", "Größe: größte zuerst"], ["size", "Größe: kleinste zuerst"], ["reverse", "Reihenfolge umkehren"], ["orig", "Ausgangsreihenfolge"]];
+
+  function saveBooks() { store.set("books", books); }
+  function findBook(id) { for (var i = 0; i < books.length; i++) if (books[i].id === id) return books[i]; return null; }
+  function trackOf(b, tid) { for (var i = 0; i < b.tracks.length; i++) if (b.tracks[i].id === tid) return b.tracks[i]; return null; }
+  function fid(b, t) { return b.id + "/" + t.id; }
+  function natCmp(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" }); }
+  function bookEp(b, t) { return { id: fid(b, t), kind: "book", bookId: b.id, title: t.name, show: b.name, art: "", url: "", ms: 0, date: "" }; }
+  function bookStats(b) {
+    var n = b.tracks.length, c = 0, size = 0;
+    b.tracks.forEach(function (t) { if (done[fid(b, t)]) c++; size += t.size || 0; });
+    return { n: n, c: c, size: size, pct: n ? Math.round(c / n * 100) : 0, fin: n > 0 && c === n };
+  }
+  function isPlayingBook(b) { return mode === "pod" && podWant && !!curEp && curEp.bookId === b.id; }
+  function resumeTrack(b) {
+    var cur = b.cur && trackOf(b, b.cur);
+    if (cur && !done[fid(b, cur)]) return cur;
+    for (var i = 0; i < b.tracks.length; i++) if (!done[fid(b, b.tracks[i])]) return b.tracks[i];
+    return b.tracks[0] || null;
+  }
+
+  /* -- Wiedergabe -- */
+  function bookSrc(ep) {
+    return idbDo("readonly", function (os) { return os.get(ep.id); }).then(function (blob) {
+      if (!blob) return "";
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      return (blobUrl = URL.createObjectURL(blob));
+    }).catch(function () { return ""; });
+  }
+  function rememberBookTrack(ep) {
+    var b = findBook(ep.bookId); if (!b) return;
+    var tid = ep.id.slice(b.id.length + 1);
+    if (b.cur !== tid) { b.cur = tid; saveBooks(); }
+  }
+  function bookNeighbor(ep, d) {
+    var b = findBook(ep.bookId); if (!b) return null;
+    var tid = ep.id.slice(b.id.length + 1);
+    for (var i = 0; i < b.tracks.length; i++) if (b.tracks[i].id === tid) { var t = b.tracks[i + d]; return t ? bookEp(b, t) : null; }
+    return null;
+  }
+  function bookSkip(dir) {
+    if (dir > 0) { var n = bookNeighbor(curEp, 1); if (n) playEp(n); else toast("Ende des Buchs.", 3000); return; }
+    var p = (pod.currentTime || 0) > 5 ? null : bookNeighbor(curEp, -1);
+    if (p) playEp(p); else pod.currentTime = 0;
+  }
+  function playBook(b, t) {
+    if (!t) return;
+    playEp(bookEp(b, t));
+    var el = bookBody.querySelector('[data-trk="' + t.id + '"]');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+  }
+  function podReset() {                                   // Player leeren, z. B. wenn das laufende Buch gelöscht wird
+    playReq++; pod.pause(); pod.removeAttribute("src"); try { pod.load(); } catch (e) {}
+    podWant = false; curEp = null; srcEp = null; pendingSeek = 0;
+    $("dockT").textContent = "Kein Sender gewählt"; podStatus("Technolovers.fm", false); syncPlayIcon();
+  }
+
+  /* -- Hinzufügen -- */
+  function importFiles(fileList, forcedName) {
+    var list = Array.prototype.slice.call(fileList).filter(function (f) { return AUDIO_RE.test(f.name) || /^audio\//.test(f.type || ""); });
+    if (!list.length) { toast("Keine Audiodateien gefunden."); return; }
+    if (importing) { toast("Es wird gerade schon ein Buch hinzugefügt."); return; }
+    var name = forcedName || (list[0].webkitRelativePath || "").split("/")[0] || "Neues Buch";
+    var items = list.map(function (f) {
+      var rel = f.webkitRelativePath || f.name, parts = rel.split("/");
+      if (f.webkitRelativePath) parts.shift();            // der Ordnername steht schon im Buchtitel
+      return { f: f, rel: rel, name: parts.join(" / ").replace(AUDIO_RE, ""), size: f.size, mod: f.lastModified || 0 };
+    }).sort(function (a, b) { return natCmp(a.rel, b.rel); });
+    if (books.some(function (b) { return b.name === name && b.tracks.length === items.length; })) { toast("„" + esc(name) + "“ ist schon vorhanden.", 5000); return; }
+
+    var b = { id: "b" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, created: Date.now(), cur: null, tracks: [] };
+    importing = { name: name, done: 0, total: items.length }; openBookId = null; renderBook();
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
+    (function next(i) {
+      if (i >= items.length) return null;
+      var it = items[i], t = { id: "k" + i, name: it.name, path: it.rel, size: it.size, mod: it.mod };
+      return idbDo("readwrite", function (os) { return os.put(it.f, fid(b, t)); }).then(function () {
+        b.tracks.push(t); importing.done = i + 1; renderBook(); return next(i + 1);
+      });
+    })(0).then(function () {
+      books.push(b); saveBooks(); importing = null; openBookId = b.id; renderBook();
+    }).catch(function () {
+      importing = null;
+      idbDo("readwrite", function (os) { b.tracks.forEach(function (t) { os.delete(fid(b, t)); }); }).catch(function () {});
+      toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook();
+    });
+  }
+  function deleteBook(b) {
+    if (!confirm("„" + b.name + "“ und alle gespeicherten Dateien löschen?")) return;
+    if (curEp && curEp.bookId === b.id) podReset();
+    idbDo("readwrite", function (os) { b.tracks.forEach(function (t) { os.delete(fid(b, t)); }); }).catch(function () {});
+    b.tracks.forEach(function (t) { delete pos[fid(b, t)]; delete done[fid(b, t)]; });
+    store.set("pos", pos); store.set("done", done);
+    books.splice(books.indexOf(b), 1); saveBooks();
+    if (openBookId === b.id) openBookId = null;
+    renderBook();
+  }
+
+  /* -- Reihenfolge -- */
+  function sortBook(b, how) {
+    var byName = function (x, y) { return natCmp(x.path, y.path); };
+    var fn = {
+      "name": byName, "name-desc": function (x, y) { return byName(y, x); },
+      "date": function (x, y) { return (x.mod - y.mod) || byName(x, y); }, "date-desc": function (x, y) { return (y.mod - x.mod) || byName(x, y); },
+      "size": function (x, y) { return (x.size - y.size) || byName(x, y); }, "size-desc": function (x, y) { return (y.size - x.size) || byName(x, y); },
+      "orig": function (x, y) { return +x.id.slice(1) - +y.id.slice(1); }
+    }[how];
+    if (how === "reverse") b.tracks.reverse(); else if (fn) b.tracks.sort(fn);
+    saveBooks();
+  }
+  function trackIdx(b, tid) { for (var i = 0; i < b.tracks.length; i++) if (b.tracks[i].id === tid) return i; return -1; }
+  function moveTrack(b, tid, d) {
+    var i = trackIdx(b, tid), j = i + d; if (i < 0 || j < 0 || j >= b.tracks.length) return;
+    var t = b.tracks[i]; b.tracks[i] = b.tracks[j]; b.tracks[j] = t; saveBooks(); renderBook();
+  }
+  function dropTrack(b, fromId, toId) {
+    var i = trackIdx(b, fromId), j = trackIdx(b, toId); if (i < 0 || j < 0 || i === j) return;
+    b.tracks.splice(j, 0, b.tracks.splice(i, 1)[0]); saveBooks(); renderBook();
+  }
+
+  /* -- Ansichten -- */
+  function bookCard(b) {
+    var st = bookStats(b), playing = isPlayingBook(b);
+    return '<div class="pod-row bk' + (st.fin ? " finished" : "") + '"><div class="bk-icon">' + BOOK_SVG + '</div><div class="pod-tx"><div class="pod-ti">' + esc(b.name) + '</div><div class="pod-meta">' +
+      st.c + " von " + st.n + " Kapiteln · " + fmtSize(st.size) + (st.fin ? " · ✓ fertig" : "") + '</div><div class="bar"><i style="width:' + st.pct + '%"></i></div></div><div class="pod-act">' +
+      pb("bresume", b.id, playing ? "Pause" : (b.cur ? "Weiter" : "Abspielen"), true) + pb("bopen", b.id, "Öffnen") + ab("bdel", b.id, sv(P.trash), "Buch löschen") + "</div></div>";
+  }
+  function trkRow(b, t, i) {
+    var id = fid(b, t), isCur = !!curEp && curEp.id === id && mode === "pod", now = isCur && podWant, isDone = !!done[id];
+    var meta = [fmtSize(t.size || 0)];
+    if (isDone) meta.push("✓ gehört"); else if (pos[id] > 10) meta.push("bei " + fmtT(pos[id]));
+    return '<div class="pod-row trk' + (isCur ? " cur" : "") + (isDone ? " done" : "") + '" draggable="true" data-trk="' + esc(t.id) + '"><div class="no">' + (isDone ? sv(P.ok) : i + 1) + '</div>' +
+      '<div class="pod-tx"><div class="pod-ti">' + esc(t.name) + '</div><div class="pod-meta">' + meta.join(" · ") + '</div></div><div class="pod-act">' +
+      ab("tplay", t.id, sv(now ? P.pause : P.play, true), now ? "Pause" : "Abspielen") +
+      ab("tdone", t.id, sv(P.ok), isDone ? "Als ungehört markieren" : "Als gehört markieren", isDone) +
+      ab("tup", t.id, sv(P.up), "Nach oben") + ab("tdown", t.id, sv(P.down), "Nach unten") + "</div></div>";
+  }
+  function renderBook() {
+    var b = openBookId ? findBook(openBookId) : null;
+    if (b) { renderBookDetail(b); return; }
+    openBookId = null;
+    var total = books.reduce(function (n, x) { return n + bookStats(x).size; }, 0);
+    var html = '<div class="kinds">' + pb("bookadd", "0", "Ordner hinzufügen", true) + pb("bookfiles", "0", "Einzelne Dateien") + "</div>";
+    if (importing) html += '<div class="pod-row bk"><div class="bk-icon">' + BOOK_SVG + '</div><div class="pod-tx"><div class="pod-ti">' + esc(importing.name) + '</div><div class="pod-meta">Wird gespeichert … ' +
+      importing.done + " von " + importing.total + '</div><div class="bar"><i style="width:' + Math.round(importing.done / importing.total * 100) + '%"></i></div></div></div>';
+    if (!books.length && !importing) html += empty("Noch keine Bücher. Wähle einen Ordner mit Audiodateien, zum Beispiel mit 30 MP3-Dateien. Unterordner werden mitgelesen.");
+    else if (books.length) html += '<div class="pod-sec"><span>' + books.length + " Bücher · " + fmtSize(total) + '</span></div><div class="pod-list">' + books.map(bookCard).join("") + "</div>";
+    bookBody.innerHTML = html;
+  }
+  function renderBookDetail(b) {
+    var st = bookStats(b), playing = isPlayingBook(b);
+    var sel = '<select class="pbtn" id="bookSort" aria-label="Sortieren"><option value="">Sortieren …</option>' + SORTS.map(function (x) { return '<option value="' + x[0] + '">' + x[1] + "</option>"; }).join("") + "</select>";
+    bookBody.innerHTML = '<div class="back-row">' + pb("bback", "0", "← Bücher") + '</div><div class="show-head"><div class="bk-icon big">' + BOOK_SVG + '</div><div class="tx"><h2>' + esc(b.name) + "</h2><p>" +
+      st.c + " von " + st.n + " Kapiteln · " + fmtSize(st.size) + (st.fin ? " · ✓ fertig" : "") + '</p><div class="bar"><i style="width:' + st.pct + '%"></i></div></div></div>' +
+      '<div class="kinds">' + pb("bresume", b.id, playing ? "Pause" : (b.cur ? "Weiter" : "Abspielen"), true) + sel + pb("brename", b.id, "Umbenennen") + pb("bdone", b.id, "Alle gehört") + pb("breset", b.id, "Zurücksetzen") + pb("bdel", b.id, "Löschen") + "</div>" +
+      '<div class="hint" style="margin:0 2px 10px">Reihenfolge: Zeilen ziehen oder die Pfeile benutzen.</div><div class="pod-list">' + b.tracks.map(function (t, i) { return trkRow(b, t, i); }).join("") + "</div>";
+  }
+
+  /* -- Bedienung -- */
+  $("pickDir").addEventListener("change", function (e) { importFiles(e.target.files); e.target.value = ""; });
+  $("pickFiles").addEventListener("change", function (e) {
+    if (!e.target.files.length) return;
+    var files = Array.prototype.slice.call(e.target.files); e.target.value = "";
+    var n = prompt("Name des Buchs:", "Neues Buch");
+    if (n !== null) importFiles(files, n.trim() || "Neues Buch");
+  });
+  bookBody.addEventListener("change", function (e) {
+    if (e.target.id !== "bookSort") return;
+    var b = findBook(openBookId); if (b && e.target.value) sortBook(b, e.target.value);
+    renderBook();
+  });
+  bookBody.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-act]"); if (!t || t.disabled) return;
+    var act = t.getAttribute("data-act"), id = t.getAttribute("data-id");
+    var isTrackAct = act === "tplay" || act === "tdone" || act === "tup" || act === "tdown";
+    var b = findBook(isTrackAct ? openBookId : id), tr = b && isTrackAct ? trackOf(b, id) : null;
+    if (act === "bookadd") $("pickDir").click();
+    else if (act === "bookfiles") $("pickFiles").click();
+    else if (act === "bback") { openBookId = null; renderBook(); }
+    else if (!b) return;
+    else if (act === "bopen") { openBookId = b.id; renderBook(); window.scrollTo(0, 0); }
+    else if (act === "bresume") {
+      if (curEp && curEp.bookId === b.id && mode === "pod") podToggle(); else playBook(b, resumeTrack(b));
+    }
+    else if (act === "bdel") deleteBook(b);
+    else if (act === "brename") { var n = prompt("Name des Buchs:", b.name); if (n && n.trim()) { b.name = n.trim(); saveBooks(); renderBook(); } }
+    else if (act === "bdone" || act === "breset") {
+      b.tracks.forEach(function (x) { var k = fid(b, x); delete pos[k]; if (act === "bdone") done[k] = 1; else delete done[k]; });
+      if (act === "breset") { b.cur = null; saveBooks(); }
+      store.set("pos", pos); store.set("done", done); renderBook();
+    }
+    else if (act === "tplay" && tr) { if (curEp && curEp.id === fid(b, tr) && mode === "pod") podToggle(); else playBook(b, tr); }
+    else if (act === "tdone" && tr) { var k = fid(b, tr); if (done[k]) delete done[k]; else { done[k] = 1; delete pos[k]; } store.set("pos", pos); store.set("done", done); renderBook(); }
+    else if (act === "tup") moveTrack(b, id, -1);
+    else if (act === "tdown") moveTrack(b, id, 1);
+  });
+  // Ziehen zum Umsortieren
+  bookBody.addEventListener("dragstart", function (e) {
+    var r = e.target.closest && e.target.closest("[data-trk]"); if (!r) return;
+    dragTid = r.getAttribute("data-trk"); r.classList.add("dragging");
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", dragTid); } catch (x) {} }
+  });
+  bookBody.addEventListener("dragover", function (e) {
+    var r = dragTid && e.target.closest && e.target.closest("[data-trk]"); if (!r) return;
+    e.preventDefault();
+    Array.prototype.forEach.call(bookBody.querySelectorAll(".over"), function (x) { x.classList.remove("over"); });
+    r.classList.add("over");
+  });
+  bookBody.addEventListener("drop", function (e) {
+    var r = dragTid && e.target.closest && e.target.closest("[data-trk]"); if (!r) return;
+    e.preventDefault();
+    var b = findBook(openBookId), from = dragTid; dragTid = null;
+    if (b) dropTrack(b, from, r.getAttribute("data-trk"));
+  });
+  bookBody.addEventListener("dragend", function () {
+    dragTid = null;
+    Array.prototype.forEach.call(bookBody.querySelectorAll(".over, .dragging"), function (x) { x.classList.remove("over", "dragging"); });
+  });
 
   /* ---------- Start ---------- */
   var barsEl = $("bars");
