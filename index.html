@@ -1181,6 +1181,16 @@ body.pod .seekrow { display: flex; }
     ["size-desc", "Größe: größte zuerst"], ["size", "Größe: kleinste zuerst"], ["reverse", "Reihenfolge umkehren"], ["orig", "Ausgangsreihenfolge"]];
 
   function saveBooks() { store.set("books", books); }
+  // Hilfen gegen veraltete Daten und gefährliche Namen. Importierte Namen (Dateien, Ordner, Überschriften) dürfen nie Objekt-Eigenschaften treffen.
+  function emptyMap() { return Object.create(null); }                 // Wörterbuch ohne Prototyp: "constructor" oder "__proto__" sind gewöhnliche Schlüssel
+  function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  function loadList(key, field) {                                     // frisch aus dem Speicher: ein anderer Tab hat inzwischen vielleicht gespeichert
+    var l = store.get(key, []);
+    return Array.isArray(l) ? l.filter(function (x) { return x && x.id && Array.isArray(x[field]); }) : [];
+  }
+  function nextKey(items) { var n = 0; items.forEach(function (f) { n = Math.max(n, (+String(f.id).slice(1) || 0) + 1); }); return n; }   // nächste freie Dateinummer
+  function goneError() { var e = new Error("gone"); e.gone = true; return e; }
+  function dropList(keys) { return keys.length ? idbDo("readwrite", function (os) { keys.forEach(function (k) { os["delete"](k); }); }) : Promise.resolve(); }
   function findBook(id) { for (var i = 0; i < books.length; i++) if (books[i].id === id) return books[i]; return null; }
   function trackOf(b, tid) { for (var i = 0; i < b.tracks.length; i++) if (b.tracks[i].id === tid) return b.tracks[i]; return null; }
   function fid(b, t) { return b.id + "/" + t.id; }
@@ -1248,7 +1258,10 @@ body.pod .seekrow { display: flex; }
   // Ohne Web Locks wird nur ein sehr alter Marker aufgeräumt.
   var PENDING_STALE = 600000;
   var hasLocks = !!(navigator.locks && navigator.locks.request);
-  function withImportLock(id, work) { return hasLocks ? navigator.locks.request("tl-import-" + id, function () { return work(); }) : work(); }
+  function withImportLock(id, work) {                    // gibt immer ein Promise zurück (auch ohne Web Locks, dann läuft work sofort)
+    if (hasLocks) return navigator.locks.request("tl-import-" + id, function () { return work(); });
+    try { return Promise.resolve(work()); } catch (e) { return Promise.reject(e); }
+  }
   // from: nur beim Hinzufügen zu einem bestehenden Notizordner: erste neue Datei-Nummer (die schon gespeicherten Dateien bleiben unberührt)
   function setPending(b, n, from) {
     var m = { id: b.id, n: n, ts: Date.now(), lk: hasLocks ? 1 : 0 };    // lk: der Import hält eine Web Lock
@@ -1314,7 +1327,7 @@ body.pod .seekrow { display: flex; }
     withImportLock(b.id, function () {
       setPending(b, items.length);                        // erst nach der Lock und vor der ersten Datei: so ist jede Kopie auffindbar
       return Promise.resolve(copyAll()).then(function () {
-        books.push(b); saveBooks(); store.set("pending", null);
+        books = loadList("books", "tracks"); books.push(b); saveBooks(); store.set("pending", null);      // frischer Stand: ein anderer Tab hat evtl. Bücher gespeichert
       }, function (err) {                                 // Fehlschlag: schon kopierte Dateien noch unter der Lock wieder entfernen
         return dropKeys(b.id, items.length).then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
       });
@@ -1326,53 +1339,73 @@ body.pod .seekrow { display: flex; }
   }
   // Kapitel zu einem bestehenden Buch hinzufügen (ans Ende; Reihenfolge ändern geht danach wie gewohnt). Schon vorhandene Pfade werden übersprungen,
   // so kann man denselben Ordner nach neuen Dateien erneut wählen. Neue Schlüssel ab "start": der Marker nennt den Bereich (siehe reclaimPending).
-  function addToBook(b, fileList) {
+  // Alles Entscheidende (welche Nummern frei sind, was schon im Buch ist) wird erst unter der Lock aus dem gespeicherten Stand berechnet:
+  // dieselbe Seite in einem zweiten Tab kann inzwischen schon Kapitel angehängt haben.
+  function addToBook(b0, fileList) {
     var items = bookItems(fileList);
     if (!items.length) { toast("Keine Audiodateien gefunden."); return; }
     if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
-    var have = {}, next = 0, seen = {}, skipped = 0, work = [];
-    b.tracks.forEach(function (t) { have[t.path] = 1; next = Math.max(next, (+t.id.slice(1) || 0) + 1); });
-    var start = next;
-    items.forEach(function (it) {
-      if (have[it.rel] || seen[it.rel]) { skipped++; return; }
-      seen[it.rel] = 1;
-      work.push({ it: it, t: { id: "k" + next++, name: it.name, path: it.rel, size: it.size, mod: it.mod } });
-    });
-    if (!work.length) { toast("Alle Dateien sind schon im Buch.", 4000); return; }
-    importing = { name: b.name, done: 0, total: work.length }; renderBook();
+    var work = [], start = 0, skipped = 0;
+    importing = { name: b0.name, done: 0, total: items.length }; renderBook();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
     function copyAll() {
       return (function step(i) {
         if (i >= work.length) return null;
-        return idbDo("readwrite", function (os) { return os.put(work[i].it.f, fid(b, work[i].t)); }).then(function () {
-          importing.done = i + 1; setPending(b, work.length, start); renderBook(); return step(i + 1);
+        if (!savedEntry(b0.id)) throw goneError();           // Buch gelöscht (z. B. in einem Tab ohne Web Locks): nicht weiterschreiben
+        return idbDo("readwrite", function (os) { return os.put(work[i].it.f, fid(b0, work[i].t)); }).then(function () {
+          importing.done = i + 1; setPending(b0, work.length, start); renderBook(); return step(i + 1);
         });
       })(0);
     }
-    function discardNew() { return dropKeys(b.id, work.length, start).then(function () { store.set("pending", null); }, function () {}); }
-    withImportLock(b.id, function () {
+    withImportLock(b0.id, function () {
+      books = loadList("books", "tracks");
+      var b = findBook(b0.id);
+      if (!b) throw goneError();
+      var have = emptyMap(), seen = emptyMap(), next = nextKey(b.tracks);
+      b.tracks.forEach(function (t) { have[t.path] = 1; });
+      start = next;
+      items.forEach(function (it) {
+        if (have[it.rel] || seen[it.rel]) { skipped++; return; }
+        seen[it.rel] = 1;
+        work.push({ it: it, t: { id: "k" + next++, name: it.name, path: it.rel, size: it.size, mod: it.mod } });
+      });
+      if (!work.length) return null;
+      importing.total = work.length; renderBook();
       setPending(b, work.length, start);
       return Promise.resolve(copyAll()).then(function () {
-        if (books.indexOf(b) < 0) return discardNew();      // das Buch wurde währenddessen gelöscht
-        work.forEach(function (w) { b.tracks.push(w.t); });
+        books = loadList("books", "tracks");                  // und noch einmal frisch: nichts überschreiben, was inzwischen gespeichert wurde
+        var cur = findBook(b0.id);
+        if (!cur) throw goneError();
+        work.forEach(function (w) { cur.tracks.push(w.t); });
         saveBooks(); store.set("pending", null);
-        return null;
-      }, function (err) { return discardNew().then(function () { throw err; }); });
+      }).catch(function (err) {
+        return dropKeys(b0.id, work.length, start).then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
+      });
     }).then(function () {
       importing = null;
-      if (books.indexOf(b) >= 0) toast(work.length + " neu zu „" + esc(b.name) + "“" + (skipped ? ", " + skipped + " schon vorhanden" : "") + ".", 4000);
+      toast(work.length ? work.length + " neu zu „" + esc(b0.name) + "“" + (skipped ? ", " + skipped + " schon vorhanden" : "") + "." : "Alle Dateien sind schon im Buch.", 4000);
       renderBook();
-    }, function () { importing = null; toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook(); });
+    }, function (err) {
+      importing = null; toast(err && err.gone ? "Das Buch wurde währenddessen gelöscht." : "Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook();
+    });
   }
-  function deleteBook(b) {
-    if (!confirm("„" + b.name + "“ und alle gespeicherten Dateien löschen?")) return;
-    if (curEp && curEp.bookId === b.id) podReset();
-    idbDo("readwrite", function (os) { b.tracks.forEach(function (t) { os.delete(fid(b, t)); }); }).catch(function () {});
-    b.tracks.forEach(function (t) { delete pos[fid(b, t)]; delete done[fid(b, t)]; });
-    store.set("pos", pos); store.set("done", done);
-    books.splice(books.indexOf(b), 1); saveBooks();
-    if (openBookId === b.id) openBookId = null;
-    renderBook();
+  // Löschen läuft unter derselben Lock wie Importe und Anhängen: so kann es nicht zwischen deren einzelne Schreibvorgänge geraten
+  function deleteBook(b0) {
+    if (!confirm("„" + b0.name + "“ und alle gespeicherten Dateien löschen?")) return;
+    if (importing) toast("Wird gelöscht, sobald das laufende Hinzufügen fertig ist.", 4000);
+    withImportLock(b0.id, function () {
+      books = loadList("books", "tracks");
+      var b = findBook(b0.id); if (!b) return null;
+      if (curEp && curEp.bookId === b.id) podReset();
+      return dropKeys(b.id, nextKey(b.tracks)).then(function () {
+        b.tracks.forEach(function (t) { delete pos[fid(b, t)]; delete done[fid(b, t)]; });
+        store.set("pos", pos); store.set("done", done);
+        books.splice(books.indexOf(b), 1); saveBooks();
+      });
+    }).then(function () {
+      if (openBookId === b0.id) openBookId = null;
+      renderBook();
+    }, function () { toast("Löschen fehlgeschlagen.", 5000); });
   }
 
   /* -- Reihenfolge -- */
@@ -1515,7 +1548,7 @@ body.pod .seekrow { display: flex; }
   var mdPos = obj(store.get("mdpos", {}));              // "<Vault-ID>/<Pfad>" -> Scrollposition
   var mdFs = Math.min(1.6, Math.max(.8, +store.get("mdfs", 1) || 1));
   var openVaultId = null, openNote = null, noteStack = [], vIdx = null, mdTexts = null, noteReq = 0, imgUrls = [];
-  var mdQuery = "", treeOpen = {}, scrollT = null, refreshId = null, addTarget = null, searchReq = 0;   // addTarget: { id, dir } beim Hinzufügen zu einem bestehenden Ordner
+  var mdQuery = "", treeOpen = Object.create(null), scrollT = null, refreshId = null, addTarget = null, searchReq = 0;   // addTarget: { id, dir } beim Hinzufügen zu einem bestehenden Ordner
   var noteBody = $("noteBody");
   var MD_RE = /\.(md|markdown)$/i, MD_IMG = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i;
 
@@ -1558,7 +1591,7 @@ body.pod .seekrow { display: flex; }
   var HL_ALIAS = { javascript: "js", jsx: "js", mjs: "js", node: "js", typescript: "ts", tsx: "ts", python: "py", python3: "py", shell: "sh", bash: "sh", zsh: "sh", console: "sh",
     "c++": "c", cpp: "c", h: "c", hpp: "c", "c#": "cs", csharp: "cs", golang: "go", rs: "rust", yml: "yaml", htm: "html", xml: "html", svg: "html", vue: "html",
     mysql: "sql", postgres: "sql", postgresql: "sql", sqlite: "sql", kotlin: "java", scala: "java", swift: "java", dart: "java", jsonc: "json", scss: "css", less: "css" };
-  var hlCache = {};
+  var hlCache = Object.create(null);
   function hlSpec(k) {
     if (hlCache[k]) return hlCache[k];
     var L = HL[k], src = [], types = [], kw = {};
@@ -1586,8 +1619,8 @@ body.pod .seekrow { display: flex; }
     return out + esc(code.slice(last));
   }
   function hl(code, lang) {
-    var k = HL_ALIAS[lang] || lang;
-    if (!HL[k]) return esc(code);
+    var k = own(HL_ALIAS, lang) ? HL_ALIAS[lang] : lang;
+    if (!own(HL, k)) return esc(code);
     if (HL[k].markup) return hlMarkup(code);
     var S = hlSpec(k), L = HL[k], re = S.re, out = "", last = 0, m;
     re.lastIndex = 0;
@@ -1747,7 +1780,7 @@ body.pod .seekrow { display: flex; }
         while (i < n && !isBlank(lines[i]) && !startsBlock(lines[i]) && !isBlank(q[q.length - 1])) { q.push(lines[i]); i++; }
         var co = /^\[!([\w-]+)\]([+-]?)[ \t]*(.*)$/.exec(q[0]);
         if (co) {
-          var type = co[1].toLowerCase(), hue = CALLOUT[type] !== undefined ? CALLOUT[type] : 210, title = co[3] || (type.charAt(0).toUpperCase() + type.slice(1));
+          var type = co[1].toLowerCase(), hue = own(CALLOUT, type) ? CALLOUT[type] : 210, title = co[3] || (type.charAt(0).toUpperCase() + type.slice(1));
           var body = mdBlocks(q.slice(1), c, true, false), head = '<span class="ct">' + mdInline(title, c) + "</span>";
           if (co[2]) out.push('<details class="callout" style="--c:hsl(' + hue + ' 80% 62%)" data-type="' + esc(type) + '"' + (co[2] === "+" ? " open" : "") + '><summary class="callout-title">' + head + '</summary><div class="callout-body">' + body + "</div></details>");
           else out.push('<div class="callout" style="--c:hsl(' + hue + ' 80% 62%)" data-type="' + esc(type) + '"><div class="callout-title">' + head + '</div><div class="callout-body">' + body + "</div></div>");
@@ -1838,7 +1871,7 @@ body.pod .seekrow { display: flex; }
   }
   function mdRender(text, c) {
     text = String(text).replace(/\r\n?/g, "\n").replace(/^﻿/, "");
-    c.toc = []; c.slugs = {}; c.notes = {}; c.fnOrder = []; c.fnIdx = {};
+    c.toc = []; c.slugs = Object.create(null); c.notes = Object.create(null); c.fnOrder = []; c.fnIdx = Object.create(null);
     var props = "", fm = /^---[ \t]*\n([\s\S]*?)\n(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(text);
     if (fm) { props = mdProps(fm[1]); text = text.slice(fm[0].length); }
     var lines = text.split("\n").map(function (l) { return l.replace(/^\t+/, function (t) { return "    ".repeat(t.length); }); });
@@ -1852,8 +1885,10 @@ body.pod .seekrow { display: flex; }
   }
 
   /* -- Vault: Index, Pfade und Links -- */
+  // Der Index gehört zu genau einem Ordner (id) und einem Dateistand (n): wer ihn braucht, bekommt über idxFor immer den passenden.
+  function idxFor(v) { if (!vIdx || vIdx.id !== v.id || vIdx.n !== v.files.length) vIdx = indexVault(v); return vIdx; }
   function indexVault(v) {
-    var ix = { byPath: {}, md: {}, img: {} };
+    var ix = { id: v.id, n: v.files.length, byPath: Object.create(null), md: Object.create(null), img: Object.create(null) };
     v.files.forEach(function (f) {
       var lp = f.path.toLowerCase(), base = lp.split("/").pop();
       ix.byPath[lp] = f;
@@ -1874,7 +1909,7 @@ body.pod .seekrow { display: flex; }
     return best;
   }
   function ctxFor(v, f) {
-    var ix = vIdx;
+    var ix = idxFor(v);
     return {
       path: f.path,
       wiki: function (name) {
@@ -1908,7 +1943,7 @@ body.pod .seekrow { display: flex; }
   function revokeImgs() { imgUrls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} }); imgUrls = []; }
   function loadImages(v, my) {
     return Promise.all(Array.prototype.map.call(noteBody.querySelectorAll("img[data-vimg]"), function (img) {
-      var f = vIdx && vIdx.byPath[img.getAttribute("data-vimg").toLowerCase()];
+      var f = idxFor(v).byPath[img.getAttribute("data-vimg").toLowerCase()];
       if (!f) return null;
       return readBlob(v, f).then(function (b) {
         if (my !== noteReq || !b) return;
@@ -1935,7 +1970,7 @@ body.pod .seekrow { display: flex; }
   }
   function showNote(v, path, o) {
     o = o || {};
-    var f = vIdx.byPath[String(path).toLowerCase()];
+    var f = idxFor(v).byPath[String(path).toLowerCase()];
     if (!f || f.kind !== "md") { toast("Notiz nicht gefunden.", 4000); return; }
     if (o.push && openNote) noteStack.push({ path: openNote, y: window.scrollY });
     var my = ++noteReq;
@@ -1970,7 +2005,7 @@ body.pod .seekrow { display: flex; }
   function renderNotes() {
     var v = openVaultId ? findVault(openVaultId) : null;
     if (!v) { openVaultId = null; openNote = null; renderVaultLib(); return; }
-    if (!vIdx) vIdx = indexVault(v);
+    idxFor(v);
     if (openNote) { if (!noteBody.querySelector(".rbar")) showNote(v, openNote, {}); return; }
     renderVaultTree(v);
   }
@@ -1992,11 +2027,11 @@ body.pod .seekrow { display: flex; }
   }
   var NOTE_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></svg>';
   function treeHtml(v) {
-    var root = { dirs: {}, files: [] };
+    var root = { dirs: Object.create(null), files: [] };
     v.files.forEach(function (f) {
       if (f.kind !== "md") return;
       var parts = f.path.split("/"), node = root;
-      parts.slice(0, -1).forEach(function (s) { node = node.dirs[s] || (node.dirs[s] = { dirs: {}, files: [] }); });
+      parts.slice(0, -1).forEach(function (s) { node = node.dirs[s] || (node.dirs[s] = { dirs: Object.create(null), files: [] }); });
       node.files.push(f);
     });
     var many = vaultStats(v).md > 40;
@@ -2024,7 +2059,7 @@ body.pod .seekrow { display: flex; }
   }
   function ensureTexts(v) {
     if (mdTexts && mdTexts.id === v.id) return Promise.resolve(mdTexts);
-    var t = { id: v.id, map: {} }, files = v.files.filter(function (f) { return f.kind === "md"; });
+    var t = { id: v.id, map: Object.create(null) }, files = v.files.filter(function (f) { return f.kind === "md"; });
     return files.reduce(function (p, f) {
       return p.then(function () { return readText(v, f).then(function (x) { t.map[f.path] = x; }, function () { t.map[f.path] = ""; }); });
     }, Promise.resolve()).then(function () { mdTexts = t; return t; });
@@ -2071,63 +2106,76 @@ body.pod .seekrow { display: flex; }
     });
     return items;
   }
-  // Dateien zu einem bestehenden Ordner hinzufügen: neue Pfade bekommen neue Schlüssel, vorhandene Pfade werden ersetzt
-  function addToVault(v, fileList, keepTop) {
+  // Dateien zu einem bestehenden Ordner hinzufügen: neue Pfade bekommen neue Schlüssel, vorhandene Pfade werden ersetzt.
+  // Was frei ist und was schon existiert, wird erst unter der Lock aus dem gespeicherten Stand berechnet (ein zweiter Tab kann inzwischen
+  // schon Dateien ergänzt haben). Wird der Ordner währenddessen gelöscht, wird alles wieder entfernt, was dieser Vorgang geschrieben hat.
+  function addToVault(v0, fileList, keepTop) {
     var items = collectItems(fileList, keepTop);
     if (!items.length) { toast("Keine Markdown-Dateien oder Bilder gefunden.", 5000); return; }
     if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
-    var byPath = {}, next = 0;
-    v.files.forEach(function (f) { byPath[f.path.toLowerCase()] = f; next = Math.max(next, (+f.id.slice(1) || 0) + 1); });
-    var start = next, fresh = 0, seen = {};
-    var work = [];
-    items.sort(function (a, b) { return natCmp(a.path, b.path); }).forEach(function (it) {
-      var lp = it.path.toLowerCase(); if (seen[lp]) return; seen[lp] = 1;
-      var ex = byPath[lp];
-      if (ex) work.push({ it: it, f: ex, isNew: false });
-      else { work.push({ it: it, f: { id: "k" + next++, path: it.path, kind: it.kind, size: it.size, mod: it.mod }, isNew: true }); fresh++; }
-    });
-    importing = { kind: "vault", name: v.name, done: 0, total: work.length }; renderNotesIfVisible();
+    var work = [], fresh = 0, start = 0, written = [];
+    importing = { kind: "vault", name: v0.name, done: 0, total: items.length }; renderNotesIfVisible();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
-    var replaced = work.length - fresh;
     function copyAll() {
       return (function step(i) {
         if (i >= work.length) return null;
-        var w = work[i];
-        return idbDo("readwrite", function (os) { return os.put(w.it.f, fid(v, w.f)); }).then(function () {
-          importing.done = i + 1; if (fresh) setPending(v, fresh, start); renderNotesIfVisible(); return step(i + 1);
+        if (!savedEntry(v0.id)) throw goneError();           // Ordner gelöscht (z. B. in einem Tab ohne Web Locks): nicht weiterschreiben
+        var w = work[i], k = fid(v0, w.f);
+        return idbDo("readwrite", function (os) { return os.put(w.it.f, k); }).then(function () {
+          written.push(k); importing.done = i + 1; if (fresh) setPending(v0, fresh, start); renderNotesIfVisible(); return step(i + 1);
         });
       })(0);
     }
-    function discardNew() { return (fresh ? dropKeys(v.id, fresh, start) : Promise.resolve()).then(function () { store.set("pending", null); }, function () {}); }
-    withImportLock(v.id, function () {
-      if (fresh) setPending(v, fresh, start);               // vor der ersten Datei: neue Schlüssel ab "start" sind auffindbar
+    withImportLock(v0.id, function () {
+      vaults = loadList("vaults", "files");
+      var v = findVault(v0.id);
+      if (!v) throw goneError();
+      var byPath = emptyMap(), seen = emptyMap(), next = nextKey(v.files);
+      v.files.forEach(function (f) { byPath[f.path.toLowerCase()] = f; });
+      start = next;
+      items.sort(function (a, b) { return natCmp(a.path, b.path); }).forEach(function (it) {
+        var lp = it.path.toLowerCase(); if (seen[lp]) return; seen[lp] = 1;
+        var ex = byPath[lp];
+        if (ex) work.push({ it: it, f: ex, isNew: false });
+        else { work.push({ it: it, f: { id: "k" + next++, path: it.path, kind: it.kind, size: it.size, mod: it.mod }, isNew: true }); fresh++; }
+      });
+      importing.total = work.length; renderNotesIfVisible();
+      if (fresh) setPending(v, fresh, start);                // vor der ersten Datei: neue Schlüssel ab "start" sind auffindbar
       return Promise.resolve(copyAll()).then(function () {
-        if (vaults.indexOf(v) < 0) return discardNew();      // der Ordner wurde währenddessen gelöscht
-        work.forEach(function (w) { if (w.isNew) v.files.push(w.f); else { w.f.size = w.it.size; w.f.mod = w.it.mod; } });
+        vaults = loadList("vaults", "files");                  // noch einmal frisch eintragen
+        var cur = findVault(v0.id);
+        if (!cur) throw goneError();
+        var byId = emptyMap(); cur.files.forEach(function (f) { byId[f.id] = f; });
+        work.forEach(function (w) {
+          if (w.isNew) cur.files.push(w.f);
+          else if (byId[w.f.id]) { byId[w.f.id].size = w.it.size; byId[w.f.id].mod = w.it.mod; }
+        });
         saveVaults(); store.set("pending", null);
-        return null;
-      }, function (err) { return discardNew().then(function () { throw err; }); });
+      }).catch(function (err) {                              // Ordner weg: auch ersetzte Dateien entfernen (sonst wären sie ohne Eintrag verwaist)
+        return (err && err.gone ? dropList(written) : Promise.resolve()).then(function () { return fresh ? dropKeys(v0.id, fresh, start) : null; })
+          .then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
+      });
     }).then(function () {
       importing = null;
-      if (vaults.indexOf(v) >= 0) {
-        vIdx = openVaultId === v.id ? indexVault(v) : vIdx; mdTexts = null;
-        toast(fresh + " neu" + (replaced ? ", " + replaced + " ersetzt" : "") + " in „" + esc(v.name) + "“.", 4000);
-      }
+      if (mdTexts && mdTexts.id === v0.id) mdTexts = null;
+      toast(fresh + " neu" + (work.length - fresh ? ", " + (work.length - fresh) + " ersetzt" : "") + " in „" + esc(v0.name) + "“.", 4000);
       renderNotesIfVisible();
-    }, function () { importing = null; toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderNotesIfVisible(); });
+    }, function (err) {
+      importing = null; toast(err && err.gone ? "Der Ordner wurde währenddessen gelöscht." : "Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderNotesIfVisible();
+    });
   }
   function importVault(fileList, forcedName, replaceId) {
     var all = Array.prototype.slice.call(fileList), items = collectItems(fileList, false);
     var mdCount = items.filter(function (x) { return x.kind === "md"; }).length;
     if (!mdCount) { toast("Keine Markdown-Dateien gefunden.", 5000); return; }
     if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
-    var old = replaceId ? findVault(replaceId) : null;
-    var name = (old && old.name) || forcedName || (all[0] && (all[0].webkitRelativePath || "").split("/")[0]) || "Notizen";
+    var old0 = replaceId ? findVault(replaceId) : null;
+    var name = (old0 && old0.name) || forcedName || (all[0] && (all[0].webkitRelativePath || "").split("/")[0]) || "Notizen";
     items.sort(function (a, b) { return natCmp(a.path, b.path); });
-    if (!old && vaults.some(function (x) { return x.name === name && vaultStats(x).md === mdCount; })) { toast("„" + esc(name) + "“ ist schon vorhanden. Zum Aktualisieren den Ordner öffnen und „Aktualisieren“ wählen.", 7000); return; }
+    if (!old0 && vaults.some(function (x) { return x.name === name && vaultStats(x).md === mdCount; })) { toast("„" + esc(name) + "“ ist schon vorhanden. Zum Aktualisieren den Ordner öffnen und „Aktualisieren“ wählen.", 7000); return; }
 
     var v = { id: "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, created: Date.now(), last: null, files: [] };
-    importing = { kind: "vault", name: name, done: 0, total: items.length }; if (!old) { openVaultId = null; openNote = null; } renderNotesIfVisible();
+    importing = { kind: "vault", name: name, done: 0, total: items.length }; if (!old0) { openVaultId = null; openNote = null; } renderNotesIfVisible();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
     function copyAll() {
       return (function next(i) {
@@ -2138,47 +2186,73 @@ body.pod .seekrow { display: flex; }
         });
       })(0);
     }
-    withImportLock(v.id, function () {
-      setPending(v, items.length);
-      return Promise.resolve(copyAll()).then(function () {
-        if (old) {                                        // Lesezustand übernehmen, dann die alte Kopie ersetzen
-          var keep = {}; v.files.forEach(function (f) { keep[f.path.toLowerCase()] = f.path; });
-          v.last = old.last && keep[old.last.toLowerCase()] ? keep[old.last.toLowerCase()] : null;
-          Object.keys(mdPos).forEach(function (k) {
-            if (k.indexOf(old.id + "/") !== 0) return;
-            var p = keep[k.slice(old.id.length + 1).toLowerCase()]; if (p) mdPos[v.id + "/" + p] = mdPos[k]; delete mdPos[k];
-          });
-          store.set("mdpos", mdPos);
-          vaults[vaults.indexOf(old)] = v;
-        } else vaults.push(v);
-        saveVaults(); store.set("pending", null);
-        if (old) dropKeys(old.id, old.files.length).catch(function () {});
-      }, function (err) {
-        return dropKeys(v.id, items.length).then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
+    function commit() {                                       // unter der Lock, mit frischem Stand; gibt den ersetzten Ordner zurück
+      vaults = loadList("vaults", "files");
+      var old = replaceId ? findVault(replaceId) : null;
+      if (replaceId && !old) throw goneError();               // der alte Ordner wurde währenddessen gelöscht: die neue Kopie verwerfen
+      if (old) {                                              // Lesezustand übernehmen, dann die alte Kopie ersetzen
+        var keep = emptyMap(); v.files.forEach(function (f) { keep[f.path.toLowerCase()] = f.path; });
+        var lastKey = old.last ? old.last.toLowerCase() : null;
+        v.last = lastKey && keep[lastKey] ? keep[lastKey] : null;
+        Object.keys(mdPos).forEach(function (k) {
+          if (k.indexOf(old.id + "/") !== 0) return;
+          var p = keep[k.slice(old.id.length + 1).toLowerCase()]; if (p) mdPos[v.id + "/" + p] = mdPos[k]; delete mdPos[k];
+        });
+        store.set("mdpos", mdPos);
+        vaults[vaults.indexOf(old)] = v;
+      } else vaults.push(v);
+      saveVaults(); store.set("pending", null);
+      return old;
+    }
+    function run() {
+      return withImportLock(v.id, function () {
+        setPending(v, items.length);
+        return Promise.resolve(copyAll()).then(commit).then(function (old) {
+          return old ? dropKeys(old.id, nextKey(old.files)).then(function () { return old; }, function () { return old; }) : old;      // alte Kopie entfernen (Fehler egal)
+        }, function (err) {
+          return dropKeys(v.id, items.length).then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
+        });
       });
-    }).then(function () {
-      importing = null; vIdx = null; mdTexts = null;
-      if (old && openVaultId === old.id) { openVaultId = v.id; vIdx = indexVault(v); noteBody.innerHTML = ""; if (openNote && vIdx.byPath[openNote.toLowerCase()]) showNote(v, openNote, {}); else openNote = null; }
-      else if (!old) { openVaultId = null; }
+    }
+    // Beim Aktualisieren zusätzlich die Lock des alten Ordners halten: so kann ihn niemand währenddessen löschen oder ergänzen
+    (replaceId ? withImportLock(replaceId, run) : run()).then(function (old) {
+      importing = null;
+      if (old) {
+        if (mdTexts && mdTexts.id === old.id) mdTexts = null;
+        if (openVaultId === old.id) {                          // nur wenn gerade dieser Ordner offen ist; ein anderer geöffneter Ordner bleibt unberührt
+          openVaultId = v.id; noteBody.innerHTML = "";
+          if (openNote && idxFor(v).byPath[openNote.toLowerCase()]) showNote(v, openNote, {}); else openNote = null;
+        }
+      }
       renderNotesIfVisible();
       toast(old ? "„" + esc(name) + "“ aktualisiert." : "„" + esc(name) + "“ gespeichert.", 4000);
-    }, function () {
-      importing = null; toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderNotesIfVisible();
+    }, function (err) {
+      importing = null;
+      toast(err && err.gone ? "Der Ordner wurde währenddessen gelöscht; die neue Kopie wurde verworfen." : "Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000);
+      renderNotesIfVisible();
     });
   }
   function renderNotesIfVisible() { if (view === "note" && !(openNote && noteBody.querySelector(".rbar"))) renderNotes(); }
-  function deleteVault(v) {
-    if (!confirm("„" + v.name + "“ und alle gespeicherten Dateien löschen?")) return;
-    dropKeys(v.id, v.files.length).catch(function () {});
-    Object.keys(mdPos).forEach(function (k) { if (k.indexOf(v.id + "/") === 0) delete mdPos[k]; });
-    store.set("mdpos", mdPos);
-    vaults.splice(vaults.indexOf(v), 1); saveVaults();
-    if (openVaultId === v.id) { openVaultId = null; openNote = null; vIdx = null; mdTexts = null; noteStack = []; noteReq++; revokeImgs(); }
-    renderNotes();
+  // Löschen läuft unter derselben Lock wie Importe, Aktualisieren und Hinzufügen: es kann nicht zwischen deren Schreibvorgänge geraten
+  function deleteVault(v0) {
+    if (!confirm("„" + v0.name + "“ und alle gespeicherten Dateien löschen?")) return;
+    if (importing) toast("Wird gelöscht, sobald das laufende Hinzufügen fertig ist.", 4000);
+    withImportLock(v0.id, function () {
+      vaults = loadList("vaults", "files");
+      var v = findVault(v0.id); if (!v) return null;
+      return dropKeys(v.id, nextKey(v.files)).then(function () {
+        Object.keys(mdPos).forEach(function (k) { if (k.indexOf(v.id + "/") === 0) delete mdPos[k]; });
+        store.set("mdpos", mdPos);
+        vaults.splice(vaults.indexOf(v), 1); saveVaults();
+      });
+    }).then(function () {
+      if (openVaultId === v0.id) { openVaultId = null; openNote = null; vIdx = null; mdTexts = null; noteStack = []; noteReq++; revokeImgs(); }
+      renderNotes();
+    }, function () { toast("Löschen fehlgeschlagen.", 5000); });
   }
   function openVault(v, note) {
-    openVaultId = v.id; vIdx = indexVault(v); mdTexts = null; noteStack = []; mdQuery = "";
-    if (note && vIdx.byPath[note.toLowerCase()]) { openNote = note; noteBody.innerHTML = ""; showNote(v, note, {}); }
+    openVaultId = v.id; vIdx = null; mdTexts = null; noteStack = []; mdQuery = "";
+    if (note && idxFor(v).byPath[note.toLowerCase()]) { openNote = note; noteBody.innerHTML = ""; showNote(v, note, {}); }
     else { openNote = null; renderVaultTree(v); window.scrollTo(0, 0); }
   }
 
