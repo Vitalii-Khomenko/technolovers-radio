@@ -1400,7 +1400,8 @@ body.pod .seekrow { display: flex; }
       return dropKeys(b.id, nextKey(b.tracks)).then(function () {
         b.tracks.forEach(function (t) { delete pos[fid(b, t)]; delete done[fid(b, t)]; });
         store.set("pos", pos); store.set("done", done);
-        books.splice(books.indexOf(b), 1); saveBooks();
+        // frisch laden und nach ID entfernen: ein paralleler Vorgang hat die Liste inzwischen neu geladen, das Objekt b gehört zum alten Stand
+        books = loadList("books", "tracks").filter(function (x) { return x.id !== b.id; }); saveBooks();
       });
     }).then(function () {
       if (openBookId === b0.id) openBookId = null;
@@ -2106,6 +2107,19 @@ body.pod .seekrow { display: flex; }
     });
     return items;
   }
+  // Führt work(v) unter der Lock des Ordners aus. Wurde der Ordner inzwischen durch "Aktualisieren" ersetzt (neue ID), folgt die Aktion dem Nachfolger
+  // (v.replaces listet die früheren IDs), statt eine bestätigte Aktion stillschweigend zu verlieren. Gibt es weder den Ordner noch einen Nachfolger: goneError.
+  function withVault(id, work) {
+    return withImportLock(id, function () {
+      vaults = loadList("vaults", "files");
+      var v = findVault(id);
+      if (v) return work(v);
+      var succ = null;
+      vaults.forEach(function (x) { if (Array.isArray(x.replaces) && x.replaces.indexOf(id) >= 0) succ = x; });
+      if (!succ) throw goneError();
+      return withVault(succ.id, work);
+    });
+  }
   // Dateien zu einem bestehenden Ordner hinzufügen: neue Pfade bekommen neue Schlüssel, vorhandene Pfade werden ersetzt.
   // Was frei ist und was schon existiert, wird erst unter der Lock aus dem gespeicherten Stand berechnet (ein zweiter Tab kann inzwischen
   // schon Dateien ergänzt haben). Wird der Ordner währenddessen gelöscht, wird alles wieder entfernt, was dieser Vorgang geschrieben hat.
@@ -2113,23 +2127,21 @@ body.pod .seekrow { display: flex; }
     var items = collectItems(fileList, keepTop);
     if (!items.length) { toast("Keine Markdown-Dateien oder Bilder gefunden.", 5000); return; }
     if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
-    var work = [], fresh = 0, start = 0, written = [];
+    var work = [], fresh = 0, start = 0, written = [], tgt = v0;           // tgt: der Ordner, in den wirklich geschrieben wird (evtl. der Nachfolger nach einem Aktualisieren)
     importing = { kind: "vault", name: v0.name, done: 0, total: items.length }; renderNotesIfVisible();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
     function copyAll() {
       return (function step(i) {
         if (i >= work.length) return null;
-        if (!savedEntry(v0.id)) throw goneError();           // Ordner gelöscht (z. B. in einem Tab ohne Web Locks): nicht weiterschreiben
-        var w = work[i], k = fid(v0, w.f);
+        if (!savedEntry(tgt.id)) throw goneError();           // Ordner gelöscht (z. B. in einem Tab ohne Web Locks): nicht weiterschreiben
+        var w = work[i], k = fid(tgt, w.f);
         return idbDo("readwrite", function (os) { return os.put(w.it.f, k); }).then(function () {
           written.push(k); importing.done = i + 1; if (fresh) setPending(v0, fresh, start); renderNotesIfVisible(); return step(i + 1);
         });
       })(0);
     }
-    withImportLock(v0.id, function () {
-      vaults = loadList("vaults", "files");
-      var v = findVault(v0.id);
-      if (!v) throw goneError();
+    withVault(v0.id, function (v) {
+      tgt = v;
       var byPath = emptyMap(), seen = emptyMap(), next = nextKey(v.files);
       v.files.forEach(function (f) { byPath[f.path.toLowerCase()] = f; });
       start = next;
@@ -2143,7 +2155,7 @@ body.pod .seekrow { display: flex; }
       if (fresh) setPending(v, fresh, start);                // vor der ersten Datei: neue Schlüssel ab "start" sind auffindbar
       return Promise.resolve(copyAll()).then(function () {
         vaults = loadList("vaults", "files");                  // noch einmal frisch eintragen
-        var cur = findVault(v0.id);
+        var cur = findVault(tgt.id);
         if (!cur) throw goneError();
         var byId = emptyMap(); cur.files.forEach(function (f) { byId[f.id] = f; });
         work.forEach(function (w) {
@@ -2152,12 +2164,12 @@ body.pod .seekrow { display: flex; }
         });
         saveVaults(); store.set("pending", null);
       }).catch(function (err) {                              // Ordner weg: auch ersetzte Dateien entfernen (sonst wären sie ohne Eintrag verwaist)
-        return (err && err.gone ? dropList(written) : Promise.resolve()).then(function () { return fresh ? dropKeys(v0.id, fresh, start) : null; })
+        return (err && err.gone ? dropList(written) : Promise.resolve()).then(function () { return fresh ? dropKeys(tgt.id, fresh, start) : null; })
           .then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
       });
     }).then(function () {
       importing = null;
-      if (mdTexts && mdTexts.id === v0.id) mdTexts = null;
+      if (mdTexts && (mdTexts.id === v0.id || mdTexts.id === tgt.id)) mdTexts = null;
       toast(fresh + " neu" + (work.length - fresh ? ", " + (work.length - fresh) + " ersetzt" : "") + " in „" + esc(v0.name) + "“.", 4000);
       renderNotesIfVisible();
     }, function (err) {
@@ -2199,6 +2211,7 @@ body.pod .seekrow { display: flex; }
           var p = keep[k.slice(old.id.length + 1).toLowerCase()]; if (p) mdPos[v.id + "/" + p] = mdPos[k]; delete mdPos[k];
         });
         store.set("mdpos", mdPos);
+        v.replaces = (old.replaces || []).concat(old.id).slice(-5);      // damit wartende Aktionen auf die alte ID dem Nachfolger folgen können (withVault)
         vaults[vaults.indexOf(old)] = v;
       } else vaults.push(v);
       saveVaults(); store.set("pending", null);
@@ -2228,7 +2241,7 @@ body.pod .seekrow { display: flex; }
       toast(old ? "„" + esc(name) + "“ aktualisiert." : "„" + esc(name) + "“ gespeichert.", 4000);
     }, function (err) {
       importing = null;
-      toast(err && err.gone ? "Der Ordner wurde währenddessen gelöscht; die neue Kopie wurde verworfen." : "Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000);
+      toast(err && err.gone ? "Der Ordner wurde währenddessen gelöscht oder ersetzt; die neue Kopie wurde verworfen." : "Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000);
       renderNotesIfVisible();
     });
   }
@@ -2237,18 +2250,21 @@ body.pod .seekrow { display: flex; }
   function deleteVault(v0) {
     if (!confirm("„" + v0.name + "“ und alle gespeicherten Dateien löschen?")) return;
     if (importing) toast("Wird gelöscht, sobald das laufende Hinzufügen fertig ist.", 4000);
-    withImportLock(v0.id, function () {
-      vaults = loadList("vaults", "files");
-      var v = findVault(v0.id); if (!v) return null;
+    withVault(v0.id, function (v) {                          // folgt dem Nachfolger, falls der Ordner inzwischen aktualisiert (ersetzt) wurde
       return dropKeys(v.id, nextKey(v.files)).then(function () {
         Object.keys(mdPos).forEach(function (k) { if (k.indexOf(v.id + "/") === 0) delete mdPos[k]; });
         store.set("mdpos", mdPos);
-        vaults.splice(vaults.indexOf(v), 1); saveVaults();
+        // frisch laden und nach ID entfernen (nicht per Objekt-Index: ein paralleler Vorgang hat die Liste inzwischen neu geladen)
+        vaults = loadList("vaults", "files").filter(function (x) { return x.id !== v.id; }); saveVaults();
+        return v.id;
       });
-    }).then(function () {
-      if (openVaultId === v0.id) { openVaultId = null; openNote = null; vIdx = null; mdTexts = null; noteStack = []; noteReq++; revokeImgs(); }
+    }).then(function (deletedId) {
+      if (openVaultId === v0.id || openVaultId === deletedId) { openVaultId = null; openNote = null; vIdx = null; mdTexts = null; noteStack = []; noteReq++; revokeImgs(); }
       renderNotes();
-    }, function () { toast("Löschen fehlgeschlagen.", 5000); });
+    }, function (err) {
+      if (err && err.gone) { renderNotes(); return; }         // gab es schon nicht mehr
+      toast("Löschen fehlgeschlagen.", 5000);
+    });
   }
   function openVault(v, note) {
     openVaultId = v.id; vIdx = null; mdTexts = null; noteStack = []; mdQuery = "";
