@@ -86,3 +86,7 @@ The site is published with GitHub Pages from the root of the `main` branch, so c
 ## Browser support
 
 The app is built for current Chrome, Edge, Firefox and Safari, on desktop and mobile. Folder import needs a browser that supports picking folders; where that is not available, use "Einzelne Dateien" (single files).
+
+## License
+
+[MIT](LICENSE). The license covers the code of this app only. The radio streams, podcast feeds and the iTunes Search API belong to their providers and have their own terms.
