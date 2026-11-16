@@ -1976,7 +1976,7 @@ body.pod .seekrow { display: flex; }
     if (o.push && openNote) noteStack.push({ path: openNote, y: window.scrollY });
     var my = ++noteReq;
     readText(v, f).then(function (text) {
-      if (my !== noteReq) return;
+      if (my !== noteReq || openVaultId !== v.id) return;
       openNote = f.path; v.last = f.path; saveVaults();
       var r = mdRender(text, ctxFor(v, f));
       revokeImgs();
@@ -2003,9 +2003,12 @@ body.pod .seekrow { display: flex; }
     v.files.forEach(function (f) { if (f.kind === "md") md++; else img++; size += f.size || 0; });
     return { md: md, img: img, size: size };
   }
+  // Alles zurücksetzen, was zum geöffneten Ordner gehört. noteReq++ entwertet auch eine noch laufende Lese-Anfrage einer Notiz,
+  // sonst würde sie später einen Leser für einen nicht mehr vorhandenen Ordner anzeigen (mit nutzlosem "Zurück").
+  function closeVault() { openVaultId = null; openNote = null; vIdx = null; mdTexts = null; noteStack = []; noteReq++; revokeImgs(); }
   function renderNotes() {
     var v = openVaultId ? findVault(openVaultId) : null;
-    if (!v) { openVaultId = null; openNote = null; renderVaultLib(); return; }
+    if (!v) { closeVault(); renderVaultLib(); return; }
     idxFor(v);
     if (openNote) { if (!noteBody.querySelector(".rbar")) showNote(v, openNote, {}); return; }
     renderVaultTree(v);
@@ -2136,7 +2139,7 @@ body.pod .seekrow { display: flex; }
         if (!savedEntry(tgt.id)) throw goneError();           // Ordner gelöscht (z. B. in einem Tab ohne Web Locks): nicht weiterschreiben
         var w = work[i], k = fid(tgt, w.f);
         return idbDo("readwrite", function (os) { return os.put(w.it.f, k); }).then(function () {
-          written.push(k); importing.done = i + 1; if (fresh) setPending(v0, fresh, start); renderNotesIfVisible(); return step(i + 1);
+          written.push(k); importing.done = i + 1; if (fresh) setPending(tgt, fresh, start); renderNotesIfVisible(); return step(i + 1);
         });
       })(0);
     }
@@ -2259,10 +2262,10 @@ body.pod .seekrow { display: flex; }
         return v.id;
       });
     }).then(function (deletedId) {
-      if (openVaultId === v0.id || openVaultId === deletedId) { openVaultId = null; openNote = null; vIdx = null; mdTexts = null; noteStack = []; noteReq++; revokeImgs(); }
+      if (openVaultId === v0.id || openVaultId === deletedId) closeVault();
       renderNotes();
     }, function (err) {
-      if (err && err.gone) { renderNotes(); return; }         // gab es schon nicht mehr
+      if (err && err.gone) { if (openVaultId === v0.id) closeVault(); renderNotes(); return; }         // gab es schon nicht mehr (z. B. in einem anderen Tab gelöscht)
       toast("Löschen fehlgeschlagen.", 5000);
     });
   }
