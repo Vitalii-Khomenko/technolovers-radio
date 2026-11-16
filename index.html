@@ -530,6 +530,7 @@ body.pod .seekrow { display: flex; }
   $("q").addEventListener("input", function (e) { query = e.target.value; renderGrid(); });
 
   function toggleFav(id) {
+    var f = store.get("favs", []); favs = Array.isArray(f) ? f : [];      // frisch: ein anderer Tab hat evtl. Favoriten geändert
     var i = favs.indexOf(id);
     if (i >= 0) favs.splice(i, 1); else favs.push(id);
     store.set("favs", favs); renderChips(); renderGrid();
@@ -634,7 +635,8 @@ body.pod .seekrow { display: flex; }
     if (mode === "pod") { podSkip(dir); return; }
     var list = visible(); if (!list.length) list = S;
     var i = current ? list.map(function (s) { return s.id; }).indexOf(current.id) : -1;
-    var n = list[(i + dir + list.length) % list.length];
+    // aktueller Sender nicht in der Liste (anderer Filter): vorwärts der erste, rückwärts der letzte
+    var n = i < 0 ? list[dir > 0 ? 0 : list.length - 1] : list[(i + dir + list.length) % list.length];
     select(n.id, true);
     var el = grid.querySelector('[data-id="' + n.id + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
@@ -648,15 +650,17 @@ body.pod .seekrow { display: flex; }
   $("play").addEventListener("click", toggle);
   $("next").addEventListener("click", function () { step(1); });
   $("prev").addEventListener("click", function () { step(-1); });
+  // Eingabefelder (auch Auswahllisten) behalten ihre Tasten; mit Alt/Strg/Cmd sind es Browser-Kürzel (Alt+← = Zurück)
+  function typing(t) { var n = t && t.tagName; return n === "INPUT" || n === "SELECT" || n === "TEXTAREA" || !!(t && t.isContentEditable); }
   document.addEventListener("keydown", function (e) {
-    if (e.target.tagName === "INPUT" || view === "note") return;     // beim Lesen scrollt die Leertaste die Notiz
+    if (typing(e.target) || view === "note" || e.altKey || e.ctrlKey || e.metaKey) return;     // beim Lesen scrollt die Leertaste die Notiz
     if (e.code === "Space") { e.preventDefault(); toggle(); }
     else if (e.code === "ArrowRight") { if (mode === "pod") podSeek(30); else step(1); }
     else if (e.code === "ArrowLeft") { if (mode === "pod") podSeek(-15); else step(-1); }
   });
   // Leertaste löst auf einem fokussierten Button sonst zusätzlich dessen Klick aus (Doppel-Toggle)
   document.addEventListener("keyup", function (e) {
-    if (e.code === "Space" && e.target.tagName !== "INPUT" && view !== "note") e.preventDefault();
+    if (e.code === "Space" && !typing(e.target) && view !== "note" && !e.altKey && !e.ctrlKey && !e.metaKey) e.preventDefault();
   });
 
   /* ---------- Lautstärke ---------- */
@@ -683,7 +687,7 @@ body.pod .seekrow { display: flex; }
     btn.classList.add("on");
     function tick() {
       var left = Math.max(0, sleepEnd - Date.now());
-      if (left === 0) { clearInterval(sleepTick); stepI = 0; btn.textContent = "Timer aus"; btn.classList.remove("on"); if (mode === "pod") pod.pause(); else stop(); setStatus("Einschlaf-Timer beendet", false); return; }
+      if (left === 0) { clearInterval(sleepTick); stepI = 0; btn.textContent = "Timer aus"; btn.classList.remove("on"); if (mode === "pod") podPause(); else stop(); setStatus("Einschlaf-Timer beendet", false); return; }
       btn.textContent = "Noch " + Math.ceil(left / 60000) + " min";
     }
     tick(); sleepTick = setInterval(tick, 15000);
@@ -698,7 +702,7 @@ body.pod .seekrow { display: flex; }
     var ms = navigator.mediaSession;
     try {
       ms.setActionHandler("play", function () { if (mode === "pod") { if (!podWant) podToggle(); } else if (!wantPlay) toggle(); });
-      ms.setActionHandler("pause", function () { if (mode === "pod") pod.pause(); else if (wantPlay) stop(); });
+      ms.setActionHandler("pause", function () { if (mode === "pod") podPause(); else if (wantPlay) stop(); });
       ms.setActionHandler("nexttrack", function () { step(1); });
       ms.setActionHandler("previoustrack", function () { step(-1); });
     } catch (e) {}
@@ -743,7 +747,7 @@ body.pod .seekrow { display: flex; }
   function fmtT(s) { s = Math.max(0, Math.floor(s || 0)); var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" + (m < 10 ? "0" : "") + m : m) + ":" + (x < 10 ? "0" : "") + x; }
   function fmtDur(ms) { var m = Math.round(ms / 60000); if (!m) return ""; return m >= 60 ? Math.floor(m / 60) + " Std" + (m % 60 ? " " + (m % 60) + " min" : "") : m + " min"; }
   function fmtDate(iso) { var d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }); }
-  function fmtSize(b) { return b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
+  function fmtSize(b) { if (!(b > 0)) return "0 KB"; return b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
   var toastT = null;
   function toast(html, ms) { var t = $("toast"); t.innerHTML = html; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, ms || 5000); }
 
@@ -757,8 +761,12 @@ body.pod .seekrow { display: flex; }
   function epsOf(d) { return (d.results || []).filter(function (r) { return r.kind === "podcast-episode" && /^https?:\/\//i.test(r.episodeUrl || ""); }).map(function (r) { return reg(toEp(r)); }); }
   function reg(ep) { epIndex[ep.id] = ep; return ep; }
   function lite(ep) { return { id: ep.id, title: ep.title, show: ep.show, showId: ep.showId, art: ep.art, url: ep.url, ms: ep.ms, date: ep.date }; }
-  queue.forEach(reg);
-  Object.keys(dlMeta).forEach(function (k) { reg(dlMeta[k]); });
+  // Vor jeder Änderung frisch aus dem Speicher lesen: ein anderer Tab hat inzwischen vielleicht gespeichert (sonst würde dieser Tab dessen Stand
+  // mit seinem alten überschreiben, z. B. einen dort gemachten Download vergessen, dessen Datei dann ohne Eintrag in IndexedDB bliebe)
+  function loadQueue() { var q = store.get("queue", []); queue = Array.isArray(q) ? q : []; queue.forEach(reg); }
+  function loadDl() { dlMeta = obj(store.get("dl", {})); Object.keys(dlMeta).forEach(function (k) { reg(dlMeta[k]); }); }
+  function loadProgress() { pos = obj(store.get("pos", {})); done = obj(store.get("done", {})); }
+  loadQueue(); loadDl();
 
   /* -- Offline-Speicher (IndexedDB) -- */
   var dbp = null;
@@ -929,6 +937,7 @@ body.pod .seekrow { display: flex; }
   function openShowById(s) {
     if (!s) return;
     openShow = s; showEps = null; podBody.innerHTML = "";
+    subs = obj(store.get("subs", {}));
     if (subs[s.id]) { subs[s.id].seen = new Date().toISOString(); store.set("subs", subs); feed = null; }
     renderPod();
     api("lookup?id=" + encodeURIComponent(s.id) + "&entity=podcastEpisode&limit=200").then(function (d) {
@@ -937,17 +946,20 @@ body.pod .seekrow { display: flex; }
   }
   function toggleSub(s) {
     if (!s) return;
+    subs = obj(store.get("subs", {}));
     if (subs[s.id]) delete subs[s.id]; else subs[s.id] = { id: s.id, name: s.name, artist: s.artist, art: s.art, seen: new Date().toISOString() };
     store.set("subs", subs); feed = null; renderPod();
   }
 
   /* -- Wiedergabeliste / Download -- */
   function toggleQueue(ep) {
+    loadQueue();
     var i = qIdx(ep.id);
     if (i >= 0) queue.splice(i, 1); else queue.push(lite(ep));
     store.set("queue", queue); renderPod();
   }
   function moveQueue(id, d) {
+    loadQueue();
     var i = qIdx(id), j = i + d; if (i < 0 || j < 0 || j >= queue.length) return;
     var t = queue[i]; queue[i] = queue[j]; queue[j] = t; store.set("queue", queue); renderPod();
   }
@@ -983,7 +995,7 @@ body.pod .seekrow { display: flex; }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
     fetchBlob(ep, function (p) { dling[ep.id] = p; updDl(ep.id); }).then(function (blob) {
       return idbDo("readwrite", function (os) { return os.put(blob, ep.id); }).then(function () {
-        var m = lite(ep); m.size = blob.size; m.ts = Date.now(); dlMeta[ep.id] = m; store.set("dl", dlMeta);
+        var m = lite(ep); m.size = blob.size; m.ts = Date.now(); loadDl(); dlMeta[ep.id] = m; store.set("dl", dlMeta);
       });
     }, function () {
       // Anbieter erlaubt keinen Zugriff aus dem Browser (CORS): Datei kann nur direkt geöffnet werden
@@ -992,13 +1004,13 @@ body.pod .seekrow { display: flex; }
       .then(function () { delete dling[ep.id]; renderPod(); });
   }
   function removeDl(id) {
-    idbDo("readwrite", function (os) { return os.delete(id); }).catch(function () {}).then(function () { delete dlMeta[id]; store.set("dl", dlMeta); renderPod(); });
+    idbDo("readwrite", function (os) { return os.delete(id); }).catch(function () {}).then(function () { loadDl(); delete dlMeta[id]; store.set("dl", dlMeta); renderPod(); });
   }
   function saveFile(ep) {
     idbDo("readonly", function (os) { return os.get(ep.id); }).then(function (blob) {
       if (!blob) throw new Error("missing");
       var a = document.createElement("a"), u = URL.createObjectURL(blob), m = /\.(mp3|m4a|aac|ogg|opus|wav)(\?|$)/i.exec(ep.url);
-      a.href = u; a.download = ep.title.replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) + "." + (m ? m[1].toLowerCase() : "mp3");
+      a.href = u; a.download = (String(ep.title || "").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || "Folge") + "." + (m ? m[1].toLowerCase() : "mp3");
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(u); }, 10000);
     }).catch(function () { toast("Datei konnte nicht gelesen werden.", 5000); });
@@ -1016,10 +1028,10 @@ body.pod .seekrow { display: flex; }
     if (ep.kind === "book") return bookSrc(ep);
     if (!dlMeta[ep.id]) return Promise.resolve(httpsUrl(ep.url));
     return idbDo("readonly", function (os) { return os.get(ep.id); }).then(function (blob) {
-      if (!blob) return ep.url;
+      if (!blob) return httpsUrl(ep.url);                // Datei fehlt: wie nicht heruntergeladen streamen (http wäre auf https blockiert)
       if (blobUrl) URL.revokeObjectURL(blobUrl);
       return (blobUrl = URL.createObjectURL(blob));
-    }).catch(function () { return ep.url; });
+    }).catch(function () { return httpsUrl(ep.url); });
   }
   function playEp(ep) {
     if (!ep || !(ep.url || ep.kind === "book")) return;
@@ -1034,20 +1046,26 @@ body.pod .seekrow { display: flex; }
     resolveSrc(ep).then(function (src) {
       if (my !== playReq || mode !== "pod") return;       // inzwischen andere Folge gewählt oder zum Radio gewechselt
       if (!src) {                                         // Datei fehlt: alte Quelle verwerfen, sonst würde Play sie unter dem neuen Titel abspielen
-        clearSrc(); podWant = false; podStatus("Datei nicht gefunden. Füge das Buch erneut hinzu.", true); syncPlayIcon(); refreshPod(); return;
+        clearSrc(); podWant = false; podMs("paused"); podStatus("Datei nicht gefunden. Füge das Buch erneut hinzu.", true); syncPlayIcon(); refreshPod(); return;
       }
       pendingSeek = pos[ep.id] || 0;
+      if (blobUrl && src !== blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }   // vorherige Datei-Kopie freigeben
       pod.src = src; srcEp = ep; pod.playbackRate = rate;
       var p = pod.play();
-      if (p && p.catch) p.catch(function (err) { if (err && err.name === "NotAllowedError") { podWant = false; syncPlayIcon(); refreshPod(); } });
+      if (p && p.catch) p.catch(function (err) { if (err && err.name === "NotAllowedError") { podWant = false; podMs("paused"); syncPlayIcon(); refreshPod(); } });
     });
+  }
+  // Pause bricht auch einen Start ab, dessen Datei noch gelesen wird (srcEp ist dann noch nicht die gewählte Folge); sonst liefe sie danach trotzdem los
+  function podPause() {
+    if (podWant && curEp && srcEp !== curEp) { playReq++; clearSrc(); podWant = false; podMs("paused"); syncPlayIcon(); refreshPod(); return; }
+    pod.pause();
   }
   function podToggle() {
     if (!curEp) return;
-    if (podWant) { pod.pause(); return; }
+    if (podWant) { podPause(); return; }
     if (!pod.src) { playEp(curEp); return; }
     podWant = true; syncPlayIcon();
-    var p = pod.play(); if (p && p.catch) p.catch(function () { podWant = false; syncPlayIcon(); });
+    var p = pod.play(); if (p && p.catch) p.catch(function () { podWant = false; podMs("paused"); syncPlayIcon(); });
   }
   function podSeek(sec) { if (!curEp) return; var d = pod.duration; pod.currentTime = Math.max(0, Math.min(isFinite(d) ? d : Infinity, (pod.currentTime || 0) + sec)); seekUi(); }
   function nextInQueue(d) {
@@ -1066,7 +1084,7 @@ body.pod .seekrow { display: flex; }
   //  - die gespeicherte Startposition noch nicht angewendet ist (currentTime ist dann noch 0).
   function savePos() {
     if (!srcEp || pod.ended || pendingSeek > 0) return;
-    pos[srcEp.id] = Math.floor(pod.currentTime || 0); store.set("pos", pos); lastSave = Date.now();
+    loadProgress(); pos[srcEp.id] = Math.floor(pod.currentTime || 0); store.set("pos", pos); lastSave = Date.now();
   }
   function seekUi() {
     var d = pod.duration; if (!isFinite(d) || !d) d = curEp ? curEp.ms / 1000 : 0;
@@ -1087,32 +1105,35 @@ body.pod .seekrow { display: flex; }
   });
   pod.addEventListener("durationchange", seekUi);
   pod.addEventListener("timeupdate", function () { seekUi(); if (Date.now() - lastSave > 5000) savePos(); });
+  // Zustand für Sperrbildschirm/Medientasten. Überall setzen, wo die Wiedergabe ohne "pause"-Ereignis endet (abgebrochener Start, Fehler, Ende,
+  // Zurücksetzen): sonst bliebe dort "playing" stehen und der Sperrbildschirm böte weiter Pause statt Play an. Nur im Datei-Modus, sonst gehört er dem Radio.
+  function podMs(state) { if (mode === "pod" && "mediaSession" in navigator) try { navigator.mediaSession.playbackState = state; } catch (e) {} }
   pod.addEventListener("playing", function () {
     if (mode !== "pod") return;
     podWant = true; podStatus(curEp ? curEp.show : "", false);
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+    podMs("playing");
     syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("pause", function () {
     if (mode !== "pod" || pod.ended || !pod.paused || curEp !== srcEp) return;   // Quelle wird gerade gewechselt
     podWant = false; savePos();
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+    podMs("paused");
     syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("waiting", function () { if (podWant && mode === "pod") podStatus("Puffert …", false); });
   pod.addEventListener("error", function () {
     if (mode !== "pod" || !curEp || curEp !== srcEp || !pod.getAttribute("src")) return;
-    if (!rawTried && /^http:\/\//i.test(curEp.url) && pod.src !== curEp.url && !dlMeta[curEp.id]) {   // https-Variante fehlt: Original versuchen
+    if (!rawTried && /^http:\/\//i.test(curEp.url) && pod.src !== curEp.url && !/^blob:/.test(pod.src)) {   // https-Variante fehlt: Original versuchen
       rawTried = true; pod.src = curEp.url; pod.play().catch(function () {}); return;
     }
-    podWant = false; podStatus(curEp.kind === "book" ? "Datei nicht abspielbar." : "Folge nicht abspielbar. Versuche eine andere.", true); syncPlayIcon(); refreshPod();
+    podWant = false; podMs("paused"); podStatus(curEp.kind === "book" ? "Datei nicht abspielbar." : "Folge nicht abspielbar. Versuche eine andere.", true); syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("ended", function () {
     if (mode !== "pod" || !curEp || curEp !== srcEp) return;
-    delete pos[curEp.id]; done[curEp.id] = 1; store.set("pos", pos); store.set("done", done);
+    loadProgress(); delete pos[curEp.id]; done[curEp.id] = 1; store.set("pos", pos); store.set("done", done);
     podWant = false;
     var isBook = curEp.kind === "book", n = isBook ? bookNeighbor(curEp, 1) : nextInQueue(1);
-    if (n) playEp(n); else { if (isBook) toast("Ende des Buchs.", 4000); syncPlayIcon(); refreshPod(); }
+    if (n) playEp(n); else { podMs("paused"); if (isBook) toast("Ende des Buchs.", 4000); syncPlayIcon(); refreshPod(); }
   });
   window.addEventListener("pagehide", savePos);       // Fortschritt auch beim Schließen der Seite sichern
 
@@ -1148,7 +1169,7 @@ body.pod .seekrow { display: flex; }
     else if (act === "dl" && ep) download(ep);
     else if (act === "qup") moveQueue(id, -1);
     else if (act === "qdown") moveQueue(id, 1);
-    else if (act === "qrm") { var i = qIdx(id); if (i >= 0) { queue.splice(i, 1); store.set("queue", queue); renderPod(); } }
+    else if (act === "qrm") { loadQueue(); var i = qIdx(id); if (i >= 0) queue.splice(i, 1); store.set("queue", queue); renderPod(); }
     else if (act === "qclear") { queue = []; store.set("queue", queue); renderPod(); }
     else if (act === "qplay") { if (queue[0]) playEp(queue[0]); }
     else if (act === "dlrm") removeDl(id);
@@ -1181,6 +1202,9 @@ body.pod .seekrow { display: flex; }
     ["size-desc", "Größe: größte zuerst"], ["size", "Größe: kleinste zuerst"], ["reverse", "Reihenfolge umkehren"], ["orig", "Ausgangsreihenfolge"]];
 
   function saveBooks() { store.set("books", books); }
+  // Kleine Änderungen (Reihenfolge, Name, aktuelles Kapitel) auf den frisch geladenen Stand anwenden, nicht die Liste dieses Tabs zurückschreiben:
+  // sonst ginge ein inzwischen in einem anderen Tab hinzugefügtes Buch verloren (seine Dateien blieben ohne Eintrag im Speicher).
+  function patchBook(id, fn) { books = loadList("books", "tracks"); var b = findBook(id); if (b) { fn(b); saveBooks(); } return b; }
   // Hilfen gegen veraltete Daten und gefährliche Namen. Importierte Namen (Dateien, Ordner, Überschriften) dürfen nie Objekt-Eigenschaften treffen.
   function emptyMap() { return Object.create(null); }                 // Wörterbuch ohne Prototyp: "constructor" oder "__proto__" sind gewöhnliche Schlüssel
   function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
@@ -1220,7 +1244,7 @@ body.pod .seekrow { display: flex; }
   function rememberBookTrack(ep) {
     var b = findBook(ep.bookId); if (!b) return;
     var tid = ep.id.slice(b.id.length + 1);
-    if (b.cur !== tid) { b.cur = tid; saveBooks(); }
+    if (b.cur !== tid) patchBook(b.id, function (x) { x.cur = tid; });
   }
   function bookNeighbor(ep, d) {
     var b = findBook(ep.bookId); if (!b) return null;
@@ -1242,11 +1266,13 @@ body.pod .seekrow { display: flex; }
   function clearSrc() {                                   // geladene Quelle verwerfen, damit nichts Altes weiterspielt oder gespeichert wird
     pod.pause(); pod.removeAttribute("src"); try { pod.load(); } catch (e) {}
     srcEp = null; pendingSeek = 0;
+    if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }      // die Kopie der Datei nicht bis zum Schließen der Seite im Speicher halten
   }
   function podReset() {                                   // Player leeren, z. B. wenn das laufende Buch gelöscht oder zurückgesetzt wird
     playReq++; clearSrc();
     podWant = false; curEp = null;
     if (mode !== "pod") return;                           // das Radio belegt den Player/Dock: nur die alte Buch-Quelle lösen, Dock nicht anfassen
+    podMs("none");                                        // nichts mehr geladen
     $("dockT").textContent = "Kein Sender gewählt"; podStatus("Technolovers.fm", false); syncPlayIcon();
   }
 
@@ -1398,7 +1424,7 @@ body.pod .seekrow { display: flex; }
       var b = findBook(b0.id); if (!b) return null;
       if (curEp && curEp.bookId === b.id) podReset();
       return dropKeys(b.id, nextKey(b.tracks)).then(function () {
-        b.tracks.forEach(function (t) { delete pos[fid(b, t)]; delete done[fid(b, t)]; });
+        loadProgress(); b.tracks.forEach(function (t) { delete pos[fid(b, t)]; delete done[fid(b, t)]; });
         store.set("pos", pos); store.set("done", done);
         // frisch laden und nach ID entfernen: ein paralleler Vorgang hat die Liste inzwischen neu geladen, das Objekt b gehört zum alten Stand
         books = loadList("books", "tracks").filter(function (x) { return x.id !== b.id; }); saveBooks();
@@ -1418,17 +1444,23 @@ body.pod .seekrow { display: flex; }
       "size": function (x, y) { return (x.size - y.size) || byName(x, y); }, "size-desc": function (x, y) { return (y.size - x.size) || byName(x, y); },
       "orig": function (x, y) { return +x.id.slice(1) - +y.id.slice(1); }
     }[how];
-    if (how === "reverse") b.tracks.reverse(); else if (fn) b.tracks.sort(fn);
-    saveBooks();
+    if (how !== "reverse" && !fn) return;
+    patchBook(b.id, function (x) { if (how === "reverse") x.tracks.reverse(); else x.tracks.sort(fn); });
   }
   function trackIdx(b, tid) { for (var i = 0; i < b.tracks.length; i++) if (b.tracks[i].id === tid) return i; return -1; }
   function moveTrack(b, tid, d) {
-    var i = trackIdx(b, tid), j = i + d; if (i < 0 || j < 0 || j >= b.tracks.length) return;
-    var t = b.tracks[i]; b.tracks[i] = b.tracks[j]; b.tracks[j] = t; saveBooks(); renderBook();
+    patchBook(b.id, function (x) {
+      var i = trackIdx(x, tid), j = i + d; if (i < 0 || j < 0 || j >= x.tracks.length) return;
+      var t = x.tracks[i]; x.tracks[i] = x.tracks[j]; x.tracks[j] = t;
+    });
+    renderBook();
   }
   function dropTrack(b, fromId, toId) {
-    var i = trackIdx(b, fromId), j = trackIdx(b, toId); if (i < 0 || j < 0 || i === j) return;
-    b.tracks.splice(j, 0, b.tracks.splice(i, 1)[0]); saveBooks(); renderBook();
+    patchBook(b.id, function (x) {
+      var i = trackIdx(x, fromId), j = trackIdx(x, toId); if (i < 0 || j < 0 || i === j) return;
+      x.tracks.splice(j, 0, x.tracks.splice(i, 1)[0]);
+    });
+    renderBook();
   }
 
   /* -- Ansichten -- */
@@ -1474,12 +1506,14 @@ body.pod .seekrow { display: flex; }
   $("pickDir").addEventListener("change", function (e) {
     var files = Array.prototype.slice.call(e.target.files), add = bookAdd; bookAdd = null; e.target.value = "";
     if (!files.length) return;
-    if (add && findBook(add.id)) addToBook(findBook(add.id), files); else importFiles(files);
+    if (add) addToBookOrSay(add.id, files); else importFiles(files);
   });
+  // Ziel inzwischen gelöscht (z. B. in einem anderen Tab): nicht stillschweigend als neues Buch anlegen
+  function addToBookOrSay(id, files) { var b = findBook(id); if (b) addToBook(b, files); else toast("Das Buch gibt es nicht mehr.", 5000); }
   $("pickFiles").addEventListener("change", function (e) {
     if (!e.target.files.length) return;
     var files = Array.prototype.slice.call(e.target.files), add = bookAdd; bookAdd = null; e.target.value = "";
-    if (add && findBook(add.id)) { addToBook(findBook(add.id), files); return; }
+    if (add) { addToBookOrSay(add.id, files); return; }
     var n = prompt("Name des Buchs:", "Neues Buch");
     if (n !== null) importFiles(files, n.trim() || "Neues Buch");
   });
@@ -1504,15 +1538,18 @@ body.pod .seekrow { display: flex; }
     else if (act === "baddfiles") { bookAdd = { id: b.id }; $("pickFiles").click(); }
     else if (act === "badddir") { bookAdd = { id: b.id }; $("pickDir").click(); }
     else if (act === "bdel") deleteBook(b);
-    else if (act === "brename") { var n = prompt("Name des Buchs:", b.name); if (n && n.trim()) { b.name = n.trim(); saveBooks(); renderBook(); } }
+    else if (act === "brename") { var n = prompt("Name des Buchs:", b.name); if (n && n.trim()) { patchBook(b.id, function (x) { x.name = n.trim(); }); renderBook(); } }
     else if (act === "bdone" || act === "breset") {
       if (curEp && curEp.bookId === b.id) podReset();     // geladenes Kapitel darf keine alte Position zurückschreiben oder fortsetzen
+      loadProgress();
       b.tracks.forEach(function (x) { var k = fid(b, x); delete pos[k]; if (act === "bdone") done[k] = 1; else delete done[k]; });
-      if (act === "breset") { b.cur = null; saveBooks(); }
+      if (act === "breset") patchBook(b.id, function (x) { x.cur = null; });
       store.set("pos", pos); store.set("done", done); renderBook();
     }
     else if (act === "tplay" && tr) { if (curEp && curEp.id === fid(b, tr) && mode === "pod") podToggle(); else playBook(b, tr); }
-    else if (act === "tdone" && tr) { var k = fid(b, tr); if (done[k]) delete done[k]; else { done[k] = 1; delete pos[k]; } store.set("pos", pos); store.set("done", done); renderBook(); }
+    // tut, was auf dem Knopf steht ("on" = als gehört angezeigt), nicht blind umschalten: hat ein anderer Tab das Kapitel inzwischen
+    // als gehört markiert, würde ein Umschalten genau das Gegenteil der angezeigten Aktion bewirken
+    else if (act === "tdone" && tr) { loadProgress(); var k = fid(b, tr); if (t.classList.contains("on")) delete done[k]; else { done[k] = 1; delete pos[k]; } store.set("pos", pos); store.set("done", done); renderBook(); }
     else if (act === "tup") moveTrack(b, id, -1);
     else if (act === "tdown") moveTrack(b, id, 1);
   });
@@ -1558,6 +1595,11 @@ body.pod .seekrow { display: flex; }
   function slug(s) { return String(s).toLowerCase().replace(/[`*_~=\[\]]/g, "").replace(/[^\p{L}\p{N}\s_-]/gu, "").trim().replace(/\s+/g, "-"); }
   function saveVaults() { store.set("vaults", vaults); }
   function findVault(id) { for (var i = 0; i < vaults.length; i++) if (vaults[i].id === id) return vaults[i]; return null; }
+  function patchVault(id, fn) { vaults = loadList("vaults", "files"); var v = findVault(id); if (v) { fn(v); saveVaults(); } return v; }   // wie patchBook
+  function successorOf(id) {                             // Ordner, der diesen beim "Aktualisieren" ersetzt hat (oder null)
+    var s = null; vaults.forEach(function (x) { if (Array.isArray(x.replaces) && x.replaces.indexOf(id) >= 0) s = x; }); return s;
+  }
+  function loadMdPos() { mdPos = obj(store.get("mdpos", {})); }
   function dirOf(p) { var i = p.lastIndexOf("/"); return i < 0 ? "" : p.slice(0, i); }
   function normPath(p) {
     var out = [];
@@ -1684,15 +1726,15 @@ body.pod .seekrow { display: flex; }
       return keep(f ? linkTo(f, fr, label) : '<span class="unres" title="Notiz nicht gefunden">' + label + "</span>");
     });
     // Bilder und Links
-    var URL = "(&lt;[^&]+?&gt;|(?:[^()\\s]|\\([^)\\s]*\\))+)(?:\\s+&quot;(.*?)&quot;)?";
-    t = t.replace(new RegExp("!\\[([^\\]]*)\\]\\(" + URL + "\\)", "g"), function (m, alt, url, title) {
+    var DEST = "(&lt;[^&]+?&gt;|(?:[^()\\s]|\\([^)\\s]*\\))+)(?:\\s+&quot;(.*?)&quot;)?";
+    t = t.replace(new RegExp("!\\[([^\\]]*)\\]\\(" + DEST + "\\)", "g"), function (m, alt, url, title) {
       var u = unesc(url.replace(/^&lt;(.*)&gt;$/, "$1")), size = /\|(\d+)$/.exec(alt), a = esc(unesc(alt).replace(/\|\d+$/, "")), w = size ? ' width="' + size[1] + '"' : "";
       var ttl = title ? ' title="' + title + '"' : "";
       if (/^https?:\/\//i.test(u)) return keep('<img src="' + esc(u) + '" alt="' + a + '"' + ttl + w + ' loading="lazy" referrerpolicy="no-referrer">');
       var f = !/^[a-z][a-z0-9+.-]*:/i.test(u) && c.rel && c.rel(u);
       return keep(f && f.kind === "img" ? '<img class="vimg" data-vimg="' + esc(f.path) + '" alt="' + a + '"' + ttl + w + ">" : '<span class="unres">' + (a || esc(u)) + "</span>");
     });
-    t = t.replace(new RegExp("\\[((?:[^\\[\\]]|\\[[^\\]]*\\])*)\\]\\(" + URL + "\\)", "g"), function (m, text, url, title) {
+    t = t.replace(new RegExp("\\[((?:[^\\[\\]]|\\[[^\\]]*\\])*)\\]\\(" + DEST + "\\)", "g"), function (m, text, url, title) {
       var u = unesc(url.replace(/^&lt;(.*)&gt;$/, "$1")), inner = emph(text), ttl = title ? ' title="' + title + '"' : "";
       if (plainUrl(u)) return keep('<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer"' + ttl + ">" + inner + "</a>");
       if (u.charAt(0) === "#") { var h; try { h = decodeURIComponent(u.slice(1)); } catch (e) { h = u.slice(1); } return keep('<a href="#" class="wl" data-goto="h-' + esc(slug(h)) + '">' + inner + "</a>"); }
@@ -1701,9 +1743,9 @@ body.pod .seekrow { display: flex; }
       try { frag = decodeURIComponent(frag); } catch (e) {}
       return keep(f && f.kind === "md" ? linkTo(f, frag, inner) : '<span class="unres" title="Datei nicht gefunden">' + inner + "</span>");
     });
-    // Autolinks
-    t = t.replace(/&lt;((?:https?|mailto):[^\s]*?)&gt;/g, function (m, u) { return keep('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + "</a>"); });
-    t = t.replace(/(^|[^\w"=])(https?:\/\/(?:[^\s&]|&amp;)+)/g, function (m, pre, u) {
+    // Autolinks (ohne Platzhalter \u0001…\u0002: dort steht schon umgewandeltes Markdown, z. B. Inline-Code direkt hinter der Adresse)
+    t = t.replace(/&lt;((?:https?|mailto):[^\s\u0001\u0002]*?)&gt;/g, function (m, u) { return keep('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + "</a>"); });
+    t = t.replace(/(^|[^\w"=])(https?:\/\/(?:[^\s&\u0001\u0002]|&amp;)+)/g, function (m, pre, u) {
       var tail = /[.,;:!?)\]]+$/.exec(u); if (tail) u = u.slice(0, -tail[0].length);
       return u.length > 8 ? pre + keep('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + "</a>") + (tail ? tail[0] : "") : m;
     });
@@ -1873,8 +1915,8 @@ body.pod .seekrow { display: flex; }
   function mdRender(text, c) {
     text = String(text).replace(/\r\n?/g, "\n").replace(/^﻿/, "");
     c.toc = []; c.slugs = Object.create(null); c.notes = Object.create(null); c.fnOrder = []; c.fnIdx = Object.create(null);
-    var props = "", fm = /^---[ \t]*\n([\s\S]*?)\n(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(text);
-    if (fm) { props = mdProps(fm[1]); text = text.slice(fm[0].length); }
+    var props = "", fm = /^---[ \t]*\n(?:([\s\S]*?)\n)?(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(text);      // auch leere Eigenschaften "---\n---"
+    if (fm) { props = mdProps(fm[1] || ""); text = text.slice(fm[0].length); }
     var lines = text.split("\n").map(function (l) { return l.replace(/^\t+/, function (t) { return "    ".repeat(t.length); }); });
     var html = mdBlocks(lines, c, false, false), foot = "";
     if (c.fnOrder.length) {
@@ -1917,7 +1959,9 @@ body.pod .seekrow { display: flex; }
         var n = name.trim().toLowerCase().replace(MD_RE, "");
         if (n.indexOf("/") >= 0) {
           var hit = ix.byPath[n + ".md"] || ix.byPath[n + ".markdown"]; if (hit) return hit;
-          return closest((ix.md[n.split("/").pop()] || []).filter(function (x) { return x.path.toLowerCase().replace(MD_RE, "").slice(-n.length) === n; }), f.path);
+          return closest((ix.md[n.split("/").pop()] || []).filter(function (x) {        // nur ganze Ordnernamen: "b/X" passt nicht auf "ab/X"
+            var p = x.path.toLowerCase().replace(MD_RE, ""); return p === n || p.slice(-n.length - 1) === "/" + n;
+          }), f.path);
         }
         return closest(ix.md[n], f.path);
       },
@@ -1973,11 +2017,12 @@ body.pod .seekrow { display: flex; }
     o = o || {};
     var f = idxFor(v).byPath[String(path).toLowerCase()];
     if (!f || f.kind !== "md") { toast("Notiz nicht gefunden.", 4000); return; }
-    if (o.push && openNote) noteStack.push({ path: openNote, y: window.scrollY });
+    var back = o.push && openNote ? { path: openNote, y: window.scrollY } : null;   // erst eintragen, wenn die Notiz wirklich angezeigt wird
     var my = ++noteReq;
     readText(v, f).then(function (text) {
       if (my !== noteReq || openVaultId !== v.id) return;
-      openNote = f.path; v.last = f.path; saveVaults();
+      if (back) noteStack.push(back);
+      openNote = f.path; v.last = f.path; patchVault(v.id, function (x) { x.last = f.path; });
       var r = mdRender(text, ctxFor(v, f));
       revokeImgs();
       noteBody.innerHTML = readerShell(v, f, r);
@@ -1986,16 +2031,24 @@ body.pod .seekrow { display: flex; }
       loadImages(v, my).then(function () { if (my === noteReq && !o.frag && Math.abs(window.scrollY - y) > 2 && y > 0) window.scrollTo(0, y); });
     }).catch(function () { if (my === noteReq) toast("Notiz konnte nicht gelesen werden.", 5000); });
   }
+  // Notiz und Position werden beim Scrollen festgehalten, nicht erst beim Speichern: bis dahin ist vielleicht schon eine andere Notiz
+  // (oder die Ordneransicht) offen. Gehört die nächste Scroll-Meldung zu einer anderen Notiz, wird die vorige sofort gespeichert.
+  var scrollPend = null;
+  function flushScroll() {
+    clearTimeout(scrollT); if (!scrollPend) return;
+    var p = scrollPend; scrollPend = null;
+    loadMdPos(); mdPos[p.k] = p.y;
+    var keys = Object.keys(mdPos); if (keys.length > 400) delete mdPos[keys[0]];
+    store.set("mdpos", mdPos);
+  }
   window.addEventListener("scroll", function () {
     if (view !== "note" || !openNote || !openVaultId) return;
-    clearTimeout(scrollT);
-    scrollT = setTimeout(function () {
-      var k = openVaultId + "/" + openNote;
-      mdPos[k] = Math.round(window.scrollY);
-      var keys = Object.keys(mdPos); if (keys.length > 400) delete mdPos[keys[0]];
-      store.set("mdpos", mdPos);
-    }, 400);
+    var k = openVaultId + "/" + openNote;
+    if (scrollPend && scrollPend.k !== k) flushScroll();
+    scrollPend = { k: k, y: Math.round(window.scrollY) };
+    clearTimeout(scrollT); scrollT = setTimeout(flushScroll, 400);
   }, { passive: true });
+  window.addEventListener("pagehide", flushScroll);
 
   /* -- Übersicht, Ordnerbaum und Suche -- */
   function vaultStats(v) {
@@ -2073,8 +2126,10 @@ body.pod .seekrow { display: flex; }
     words.forEach(function (w) { var k = low.indexOf(w); if (k >= 0 && (at < 0 || k < at)) at = k; });
     if (at < 0) at = 0;
     var from = Math.max(0, at - 50), s = text.slice(from, at + 110).replace(/\s+/g, " ");
-    var h = esc(s);
-    words.forEach(function (w) { h = h.replace(new RegExp(esc(w).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), function (x) { return "<mark>" + x + "</mark>"; }); });
+    // Treffer im Klartext markieren und erst dann escapen: sonst fände z. B. "amp" das "&amp;" eines escapten "&" und zerstörte es
+    var re = new RegExp(words.map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("|"), "gi"), h = "", last = 0, m;
+    while ((m = re.exec(s))) { if (!m[0]) { re.lastIndex++; continue; } h += esc(s.slice(last, m.index)) + "<mark>" + esc(m[0]) + "</mark>"; last = re.lastIndex; }
+    h += esc(s.slice(last));
     return (from > 0 ? "… " : "") + h + (at + 110 < text.length ? " …" : "");
   }
   function renderRes(v) {
@@ -2117,8 +2172,7 @@ body.pod .seekrow { display: flex; }
       vaults = loadList("vaults", "files");
       var v = findVault(id);
       if (v) return work(v);
-      var succ = null;
-      vaults.forEach(function (x) { if (Array.isArray(x.replaces) && x.replaces.indexOf(id) >= 0) succ = x; });
+      var succ = successorOf(id);
       if (!succ) throw goneError();
       return withVault(succ.id, work);
     });
@@ -2209,6 +2263,7 @@ body.pod .seekrow { display: flex; }
         var keep = emptyMap(); v.files.forEach(function (f) { keep[f.path.toLowerCase()] = f.path; });
         var lastKey = old.last ? old.last.toLowerCase() : null;
         v.last = lastKey && keep[lastKey] ? keep[lastKey] : null;
+        loadMdPos();
         Object.keys(mdPos).forEach(function (k) {
           if (k.indexOf(old.id + "/") !== 0) return;
           var p = keep[k.slice(old.id.length + 1).toLowerCase()]; if (p) mdPos[v.id + "/" + p] = mdPos[k]; delete mdPos[k];
@@ -2255,6 +2310,7 @@ body.pod .seekrow { display: flex; }
     if (importing) toast("Wird gelöscht, sobald das laufende Hinzufügen fertig ist.", 4000);
     withVault(v0.id, function (v) {                          // folgt dem Nachfolger, falls der Ordner inzwischen aktualisiert (ersetzt) wurde
       return dropKeys(v.id, nextKey(v.files)).then(function () {
+        loadMdPos();
         Object.keys(mdPos).forEach(function (k) { if (k.indexOf(v.id + "/") === 0) delete mdPos[k]; });
         store.set("mdpos", mdPos);
         // frisch laden und nach ID entfernen (nicht per Objekt-Index: ein paralleler Vorgang hat die Liste inzwischen neu geladen)
@@ -2279,12 +2335,14 @@ body.pod .seekrow { display: flex; }
   $("pickMd").addEventListener("change", function (e) {
     var files = Array.prototype.slice.call(e.target.files), id = refreshId, add = addTarget; refreshId = null; addTarget = null; e.target.value = "";
     if (!files.length) return;
-    if (add && findVault(add.id)) addToVault(findVault(add.id), files, true); else importVault(files, null, id);
+    if (add) addToVaultOrSay(add.id, files, true); else importVault(files, null, id);
   });
+  // Ziel inzwischen ersetzt ("Aktualisieren"): dem Nachfolger folgen; gelöscht: Bescheid geben statt einen neuen Ordner anzulegen
+  function addToVaultOrSay(id, files, keepTop) { var v = findVault(id) || successorOf(id); if (v) addToVault(v, files, keepTop); else toast("Der Ordner wurde inzwischen gelöscht.", 5000); }
   $("pickMdFiles").addEventListener("change", function (e) {
     if (!e.target.files.length) return;
     var files = Array.prototype.slice.call(e.target.files), add = addTarget; addTarget = null; e.target.value = "";
-    if (add && findVault(add.id)) { addToVault(findVault(add.id), files, false); return; }
+    if (add) { addToVaultOrSay(add.id, files, false); return; }
     var n = prompt("Name des Ordners:", "Meine Notizen");
     if (n !== null) importVault(files, n.trim() || "Meine Notizen", null);
   });
@@ -2321,7 +2379,7 @@ body.pod .seekrow { display: flex; }
     else if (act === "vdel" && vv) deleteVault(vv);
     else if (act === "vback") { openVaultId = null; openNote = null; vIdx = null; renderNotes(); }
     else if (act === "vrefresh" && vv) { refreshId = vv.id; addTarget = null; toast("Wähle den Ordner erneut aus; geänderte Notizen werden übernommen.", 5000); $("pickMd").click(); }
-    else if (act === "vrename" && vv) { var nn = prompt("Name des Ordners:", vv.name); if (nn && nn.trim()) { vv.name = nn.trim(); saveVaults(); renderNotes(); } }
+    else if (act === "vrename" && vv) { var nn = prompt("Name des Ordners:", vv.name); if (nn && nn.trim()) { patchVault(vv.id, function (x) { x.name = nn.trim(); }); renderNotes(); } }
     else if (act === "nopen" && v) { noteStack = []; showNote(v, t.getAttribute("data-p"), {}); }
     else if (act === "nback" && v) {
       if (noteStack.length) { var prev = noteStack.pop(); showNote(v, prev.path, { y: prev.y }); }
@@ -2332,6 +2390,45 @@ body.pod .seekrow { display: flex; }
       mdFs = Math.min(1.6, Math.max(.8, +(mdFs + (act === "nfs+" ? .1 : -.1)).toFixed(2))); store.set("mdfs", mdFs);
       var body = $("mdBody"); if (body) body.style.fontSize = Math.round(mdFs * 100) + "%";
     }
+  });
+
+  /* ---------- Mehrere Tabs ---------- */
+  // Andere Tabs derselben Seite schreiben in denselben Speicher; der Browser meldet das hier mit "storage". Diesen Tab dann nachziehen,
+  // damit er nichts Veraltetes anzeigt oder später zurückschreibt.
+  function syncVaults() {
+    vaults = loadList("vaults", "files"); vIdx = null; mdTexts = null;
+    if (openVaultId && !findVault(openVaultId)) {
+      var succ = successorOf(openVaultId), note = openNote;
+      closeVault();                                         // auch eine laufende Lese-Anfrage für den alten Ordner verwerfen
+      if (succ) {                                           // dort aktualisiert: mit dem Nachfolger weitermachen (gleiche Notiz, falls es sie noch gibt)
+        openVaultId = succ.id;
+        if (note && idxFor(succ).byPath[note.toLowerCase()]) openNote = note;
+      }
+      noteBody.innerHTML = "";
+    }
+    if (view !== "note" || (openNote && noteBody.querySelector(".rbar"))) return;    // ein offener Leser bleibt, wie er ist
+    var v = openVaultId ? findVault(openVaultId) : null, q = $("mdq");
+    if (v && !openNote && q && document.activeElement === q) renderRes(v);         // beim Tippen in der Suche nicht das Feld neu aufbauen
+    else renderNotes();
+  }
+  function syncFromStorage(k) {
+    var all = k == null;                                    // null: der Speicher wurde ganz geleert
+    if (all || k === "tl_favs") { var f = store.get("favs", []); favs = Array.isArray(f) ? f : []; if (view === "radio") { renderChips(); renderGrid(); } }
+    if (all || k === "tl_pos" || k === "tl_done") loadProgress();
+    // "gehört" ändert Knöpfe und Markierungen: sichtbare Liste neu zeichnen. (tl_pos nicht: das schreibt ein spielender Tab alle 5 s,
+    // und die Position steuert keinen Knopf.)
+    if ((all || k === "tl_done") && (view === "book" || view === "pod")) refreshPod();
+    if (all || k === "tl_mdpos") loadMdPos();
+    if (all || k === "tl_subs") { subs = obj(store.get("subs", {})); feed = null; }
+    if (all || k === "tl_queue") loadQueue();
+    if (all || k === "tl_dl") loadDl();
+    if ((all || k === "tl_subs" || k === "tl_queue" || k === "tl_dl") && view === "pod") renderPod();
+    if (all || k === "tl_books") { books = loadList("books", "tracks"); if (view === "book") renderBook(); }
+    if (all || k === "tl_vaults") syncVaults();
+  }
+  window.addEventListener("storage", function (e) {
+    try { if (e.storageArea && e.storageArea !== window.localStorage) return; } catch (x) { return; }   // sessionStorage betrifft nur den eigenen Tab
+    if (e.key == null || e.key.indexOf("tl_") === 0) syncFromStorage(e.key);
   });
 
   reclaimPending();
