@@ -87,6 +87,11 @@ The site is published with GitHub Pages from the root of the `main` branch, so c
 
 The app is built for current Chrome, Edge, Firefox and Safari, on desktop and mobile. Folder import needs a browser that supports picking folders; where that is not available, use "Einzelne Dateien" (single files).
 
+## Developers
+
+- [esildooor-commits](https://github.com/esildooor-commits): creator of the project
+- [Vitalii-Khomenko](https://github.com/Vitalii-Khomenko): developer
+
 ## License
 
 [MIT](LICENSE). The license covers the code of this app only. The radio streams, podcast feeds and the iTunes Search API belong to their providers and have their own terms.
