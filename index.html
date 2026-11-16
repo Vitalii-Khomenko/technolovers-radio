@@ -1046,18 +1046,18 @@ body.pod .seekrow { display: flex; }
     resolveSrc(ep).then(function (src) {
       if (my !== playReq || mode !== "pod") return;       // inzwischen andere Folge gewählt oder zum Radio gewechselt
       if (!src) {                                         // Datei fehlt: alte Quelle verwerfen, sonst würde Play sie unter dem neuen Titel abspielen
-        clearSrc(); podWant = false; podStatus("Datei nicht gefunden. Füge das Buch erneut hinzu.", true); syncPlayIcon(); refreshPod(); return;
+        clearSrc(); podWant = false; podMs("paused"); podStatus("Datei nicht gefunden. Füge das Buch erneut hinzu.", true); syncPlayIcon(); refreshPod(); return;
       }
       pendingSeek = pos[ep.id] || 0;
       if (blobUrl && src !== blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }   // vorherige Datei-Kopie freigeben
       pod.src = src; srcEp = ep; pod.playbackRate = rate;
       var p = pod.play();
-      if (p && p.catch) p.catch(function (err) { if (err && err.name === "NotAllowedError") { podWant = false; syncPlayIcon(); refreshPod(); } });
+      if (p && p.catch) p.catch(function (err) { if (err && err.name === "NotAllowedError") { podWant = false; podMs("paused"); syncPlayIcon(); refreshPod(); } });
     });
   }
   // Pause bricht auch einen Start ab, dessen Datei noch gelesen wird (srcEp ist dann noch nicht die gewählte Folge); sonst liefe sie danach trotzdem los
   function podPause() {
-    if (podWant && curEp && srcEp !== curEp) { playReq++; clearSrc(); podWant = false; syncPlayIcon(); refreshPod(); return; }
+    if (podWant && curEp && srcEp !== curEp) { playReq++; clearSrc(); podWant = false; podMs("paused"); syncPlayIcon(); refreshPod(); return; }
     pod.pause();
   }
   function podToggle() {
@@ -1065,7 +1065,7 @@ body.pod .seekrow { display: flex; }
     if (podWant) { podPause(); return; }
     if (!pod.src) { playEp(curEp); return; }
     podWant = true; syncPlayIcon();
-    var p = pod.play(); if (p && p.catch) p.catch(function () { podWant = false; syncPlayIcon(); });
+    var p = pod.play(); if (p && p.catch) p.catch(function () { podWant = false; podMs("paused"); syncPlayIcon(); });
   }
   function podSeek(sec) { if (!curEp) return; var d = pod.duration; pod.currentTime = Math.max(0, Math.min(isFinite(d) ? d : Infinity, (pod.currentTime || 0) + sec)); seekUi(); }
   function nextInQueue(d) {
@@ -1105,16 +1105,19 @@ body.pod .seekrow { display: flex; }
   });
   pod.addEventListener("durationchange", seekUi);
   pod.addEventListener("timeupdate", function () { seekUi(); if (Date.now() - lastSave > 5000) savePos(); });
+  // Zustand für Sperrbildschirm/Medientasten. Überall setzen, wo die Wiedergabe ohne "pause"-Ereignis endet (abgebrochener Start, Fehler, Ende,
+  // Zurücksetzen): sonst bliebe dort "playing" stehen und der Sperrbildschirm böte weiter Pause statt Play an. Nur im Datei-Modus, sonst gehört er dem Radio.
+  function podMs(state) { if (mode === "pod" && "mediaSession" in navigator) try { navigator.mediaSession.playbackState = state; } catch (e) {} }
   pod.addEventListener("playing", function () {
     if (mode !== "pod") return;
     podWant = true; podStatus(curEp ? curEp.show : "", false);
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+    podMs("playing");
     syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("pause", function () {
     if (mode !== "pod" || pod.ended || !pod.paused || curEp !== srcEp) return;   // Quelle wird gerade gewechselt
     podWant = false; savePos();
-    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+    podMs("paused");
     syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("waiting", function () { if (podWant && mode === "pod") podStatus("Puffert …", false); });
@@ -1123,14 +1126,14 @@ body.pod .seekrow { display: flex; }
     if (!rawTried && /^http:\/\//i.test(curEp.url) && pod.src !== curEp.url && !/^blob:/.test(pod.src)) {   // https-Variante fehlt: Original versuchen
       rawTried = true; pod.src = curEp.url; pod.play().catch(function () {}); return;
     }
-    podWant = false; podStatus(curEp.kind === "book" ? "Datei nicht abspielbar." : "Folge nicht abspielbar. Versuche eine andere.", true); syncPlayIcon(); refreshPod();
+    podWant = false; podMs("paused"); podStatus(curEp.kind === "book" ? "Datei nicht abspielbar." : "Folge nicht abspielbar. Versuche eine andere.", true); syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("ended", function () {
     if (mode !== "pod" || !curEp || curEp !== srcEp) return;
     loadProgress(); delete pos[curEp.id]; done[curEp.id] = 1; store.set("pos", pos); store.set("done", done);
     podWant = false;
     var isBook = curEp.kind === "book", n = isBook ? bookNeighbor(curEp, 1) : nextInQueue(1);
-    if (n) playEp(n); else { if (isBook) toast("Ende des Buchs.", 4000); syncPlayIcon(); refreshPod(); }
+    if (n) playEp(n); else { podMs("paused"); if (isBook) toast("Ende des Buchs.", 4000); syncPlayIcon(); refreshPod(); }
   });
   window.addEventListener("pagehide", savePos);       // Fortschritt auch beim Schließen der Seite sichern
 
@@ -1269,6 +1272,7 @@ body.pod .seekrow { display: flex; }
     playReq++; clearSrc();
     podWant = false; curEp = null;
     if (mode !== "pod") return;                           // das Radio belegt den Player/Dock: nur die alte Buch-Quelle lösen, Dock nicht anfassen
+    podMs("none");                                        // nichts mehr geladen
     $("dockT").textContent = "Kein Sender gewählt"; podStatus("Technolovers.fm", false); syncPlayIcon();
   }
 
@@ -1543,7 +1547,9 @@ body.pod .seekrow { display: flex; }
       store.set("pos", pos); store.set("done", done); renderBook();
     }
     else if (act === "tplay" && tr) { if (curEp && curEp.id === fid(b, tr) && mode === "pod") podToggle(); else playBook(b, tr); }
-    else if (act === "tdone" && tr) { loadProgress(); var k = fid(b, tr); if (done[k]) delete done[k]; else { done[k] = 1; delete pos[k]; } store.set("pos", pos); store.set("done", done); renderBook(); }
+    // tut, was auf dem Knopf steht ("on" = als gehört angezeigt), nicht blind umschalten: hat ein anderer Tab das Kapitel inzwischen
+    // als gehört markiert, würde ein Umschalten genau das Gegenteil der angezeigten Aktion bewirken
+    else if (act === "tdone" && tr) { loadProgress(); var k = fid(b, tr); if (t.classList.contains("on")) delete done[k]; else { done[k] = 1; delete pos[k]; } store.set("pos", pos); store.set("done", done); renderBook(); }
     else if (act === "tup") moveTrack(b, id, -1);
     else if (act === "tdown") moveTrack(b, id, 1);
   });
@@ -2409,6 +2415,9 @@ body.pod .seekrow { display: flex; }
     var all = k == null;                                    // null: der Speicher wurde ganz geleert
     if (all || k === "tl_favs") { var f = store.get("favs", []); favs = Array.isArray(f) ? f : []; if (view === "radio") { renderChips(); renderGrid(); } }
     if (all || k === "tl_pos" || k === "tl_done") loadProgress();
+    // "gehört" ändert Knöpfe und Markierungen: sichtbare Liste neu zeichnen. (tl_pos nicht: das schreibt ein spielender Tab alle 5 s,
+    // und die Position steuert keinen Knopf.)
+    if ((all || k === "tl_done") && (view === "book" || view === "pod")) refreshPod();
     if (all || k === "tl_mdpos") loadMdPos();
     if (all || k === "tl_subs") { subs = obj(store.get("subs", {})); feed = null; }
     if (all || k === "tl_queue") loadQueue();
