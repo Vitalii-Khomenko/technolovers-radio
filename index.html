@@ -543,9 +543,10 @@ body.pod .seekrow { display: flex; }
     return order[tryIdx] || null;
   }
 
-  function start() {
+  function start(isRetry) {
     clearTimeout(connT); clearTimeout(retryT);
-    hadPlay = false; resetWatch();
+    if (!isRetry) hadPlay = false;      // nur ein frischer Start vergisst, dass der Stream schon lief; Wiederholungen nicht
+    resetWatch();
     if (!current) return;
     if (mode === "pod") { savePos(); pod.pause(); podWant = false; playReq++; setMode("radio"); }   // Podcast läuft: zurück zum Radio
     wantPlay = true; failedAll = false;
@@ -596,7 +597,7 @@ body.pod .seekrow { display: flex; }
     var wait = Math.min(1000 * retries, 5000);
     setStatus("Verbinde neu …", false);
     document.body.classList.remove("playing");
-    retryT = setTimeout(function () { if (wantPlay && mode === "radio") start(); }, wait);
+    retryT = setTimeout(function () { if (wantPlay && mode === "radio") start(true); }, wait);
   }
 
   audio.addEventListener("playing", function () {
@@ -611,7 +612,7 @@ body.pod .seekrow { display: flex; }
   audio.addEventListener("stalled", function () { if (wantPlay) setStatus("Verbindung wackelt …", false); });
   audio.addEventListener("error", function () {
     if (!wantPlay || !current) return;
-    if (hadPlay) { hadPlay = false; reconnect(); return; }   // lief schon: gleiche Adresse neu versuchen, nicht auf Schreibvarianten ausweichen
+    if (hadPlay) { reconnect(); return; }   // lief schon: gleiche Adresse immer wieder versuchen (bis Stop), nicht auf Schreibvarianten ausweichen und nicht aufgeben
     tryIdx++;
     var next = candidate();
     if (next) { audio.src = next; audio.load(); audio.play().catch(function () {}); setStatus("Verbinde …", false); }
@@ -623,7 +624,7 @@ body.pod .seekrow { display: flex; }
   setInterval(function () {
     if (!wantPlay || mode !== "radio" || !current) return;
     var t = audio.currentTime;
-    if (!audio.paused && t === lastT) { if (++stuck >= STUCK_LIMIT) { resetWatch(); hadPlay = false; reconnect(); } }
+    if (!audio.paused && t === lastT) { if (++stuck >= STUCK_LIMIT) { resetWatch(); reconnect(); } }
     else { lastT = t; stuck = 0; if (t > 0) retries = 0; }
   }, 3000);
   // Netz ist zurück: nur neu verbinden, wenn der Stream tatsächlich hängt (beim nächsten Wächter-Tick)
