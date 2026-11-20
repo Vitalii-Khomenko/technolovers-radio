@@ -11,14 +11,23 @@ The interface is in German.
 The app has four tabs:
 
 ### Radio
-- 20 ad-free stations from independent, listener-funded or public broadcasters, in five categories: Chill & Ambient, House & Trance, Bass & Glitch, Eclectic, Weltweit (worldwide).
+- 32 ad-free stations from independent, listener-funded or public broadcasters, in five categories: Chill & Ambient, House & Trance, Bass & Glitch, Eclectic, Weltweit (worldwide).
   - [SomaFM](https://somafm.com): Groove Salad, Deep Space One, Drone Zone, Lush, Secret Agent, Space Station Soma, Beat Blender, The Trip, Cliqhop, Dub Step Beyond.
   - The two channels of [NTS Radio](https://www.nts.live) (UK).
-  - Weltweit: [FIP](https://www.radiofrance.fr/fip) (France: general, Electro, Groove, Jazz, World), [DLF Nova](https://www.deutschlandfunknova.de) (Germany), [KEXP](https://www.kexp.org) and [Radio Paradise](https://radioparadise.com) (USA).
+  - Weltweit (the country is shown on each card, so you can search for it):
+    - France: [FIP](https://www.radiofrance.fr/fip) (general, Electro, Groove, Jazz, World)
+    - Germany: [DLF Nova](https://www.deutschlandfunknova.de)
+    - USA: [KEXP](https://www.kexp.org), [Radio Paradise](https://radioparadise.com), [dublab](https://dublab.org)
+    - Italy: [Radio Raheem](https://www.radioraheem.it) (Milan)
+    - Belgium: [Kiosk Radio](https://kioskradio.com) (Brussels)
+    - Netherlands: [Intergalactic FM](https://intergalactic.fm) (three channels)
+    - Norway: [NRK](https://radio.nrk.no) P3, mP3 and Jazz
+    - Australia: [Triple R](https://www.rrr.org.au) (Melbourne)
+    - Japan and South Korea: [LISTEN.moe](https://listen.moe) (J-Pop and K-Pop)
   - The streams are played straight from the stations' own servers. The app does not add or remove anything.
   - The app sends no `Referer` header (`<meta name="referrer">`). SomaFM answers requests that carry a foreign `Referer`, such as from `github.io` or `localhost`, with 403.
 - Search, category filter and favourites.
-- If a stream address does not answer, the app tries its backup address (SomaFM has two servers) and reconnects by itself when a stream stalls or drops.
+- If a stream address does not answer, the app tries its backup address (SomaFM has two servers) and, if the first connection fails, retries twice before giving up. It also reconnects by itself when a stream stalls or drops.
 - Clicking the station that is already playing does nothing, and switching quickly connects only to the last station you chose.
 - Volume and mute, plus a sleep timer: pick 5–90 minutes, add or take off 5 or 15 minutes while it runs, or cancel it. It shows a live countdown and fades the volume out over the last 20 seconds before pausing.
 - Lock-screen and media-key controls (Media Session API).
@@ -59,7 +68,7 @@ There is no account and no server-side storage. Everything stays in the browser:
 Imported books and notes are **copies**, so they use as much space as the original files. Clearing the site data removes them; the originals on your device are not touched.
 
 Network requests go only to:
-- the stream servers (somafm.com, ntslive.net, radiofrance.fr, dlf.de / rndfnk.com, streamguys1.com and radioparadise.com);
+- the stream servers (somafm.com, ntslive.net, radiofrance.fr, dlf.de / rndfnk.com, streamguys1.com, radioparadise.com, airtime.pro, rrr.org.au, intergalactic.fm, nrk.no / contentdelivery.net and listen.moe);
 - the iTunes Search API;
 - the podcast hosts;
 - Google Fonts.

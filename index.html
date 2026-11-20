@@ -460,7 +460,19 @@ body.pod .seekrow { display: flex; }
     ext("FIP World", "world", "Frankreich · Weltmusik", "fip-world", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fipworld-midfi.mp3"]),
     ext("DLF Nova", "world", "Deutschland · Pop, Indie & Electronic", "dlf-nova", "DLF Nova · Deutschland", ["https://st03.sslstream.dlf.de/dlf/03/128/mp3/stream.mp3"]),
     ext("KEXP", "world", "USA · Indie & Eclectic", "kexp", "KEXP · USA", ["https://kexp-mp3-128.streamguys1.com/kexp128.mp3"]),
-    ext("Radio Paradise", "world", "USA · Eclectic Rock & Mix", "radioparadise", "Radio Paradise · USA", ["https://stream.radioparadise.com/mp3-128"])
+    ext("Radio Paradise", "world", "USA · Eclectic Rock & Mix", "radioparadise", "Radio Paradise · USA", ["https://stream.radioparadise.com/mp3-128"]),
+    ext("dublab", "world", "USA · Electronic & Experimental", "dublab", "dublab · USA", ["https://dublab.out.airtime.pro/dublab_a"]),
+    ext("Radio Raheem", "world", "Italien · Eclectic & Underground", "raheem", "Radio Raheem · Italien", ["https://radioraheem.out.airtime.pro/radioraheem_a"]),
+    ext("Kiosk Radio", "world", "Belgien · Electronic & Eclectic", "kiosk", "Kiosk Radio · Belgien", ["https://kioskradiobxl.out.airtime.pro/kioskradiobxl_b"]),
+    ext("Triple R", "world", "Australien · Indie & Eclectic", "triple-r", "Triple R · Australien", ["https://realtime.rrr.org.au/p1h"]),
+    ext("Intergalactic Disco Fetish", "world", "Niederlande · Disco", "ig-disco", "Intergalactic FM · Niederlande", ["https://radio.intergalactic.fm/2"]),
+    ext("Intergalactic Dream Machine", "world", "Niederlande · Electronic", "ig-dream", "Intergalactic FM · Niederlande", ["https://radio.intergalactic.fm/3"]),
+    ext("Intergalactic Cybernetic", "world", "Niederlande · Electronic", "ig-cyber", "Intergalactic FM · Niederlande", ["https://radio.intergalactic.fm/1"]),
+    ext("NRK P3", "world", "Norwegen · Pop & Hits", "nrk-p3", "NRK · Norwegen", ["https://lyd.nrk.no/nrk_radio_p3_mp3_h"]),
+    ext("NRK mP3", "world", "Norwegen · Musik-Mix", "nrk-mp3", "NRK · Norwegen", ["https://lyd.nrk.no/nrk_radio_mp3_mp3_h"]),
+    ext("NRK Jazz", "world", "Norwegen · Jazz", "nrk-jazz", "NRK · Norwegen", ["https://lyd.nrk.no/nrk_radio_jazz_mp3_h"]),
+    ext("LISTEN.moe J-Pop", "world", "Japan · J-Pop & Anime", "listenmoe-jpop", "LISTEN.moe · Japan", ["https://listen.moe/fallback"]),
+    ext("LISTEN.moe K-Pop", "world", "Südkorea · K-Pop", "listenmoe-kpop", "LISTEN.moe · Südkorea", ["https://listen.moe/kpop/fallback"])
   ];
   function ext(name, cat, genre, id, tag, urls) { return { id: id, name: name, cat: cat, bpm: genre, tag: tag, urls: urls, brand: tag }; }
   function soma(slug) { return ["https://ice1.somafm.com/" + slug + "-128-mp3", "https://ice2.somafm.com/" + slug + "-128-mp3"]; }
@@ -585,7 +597,7 @@ body.pod .seekrow { display: flex; }
 
   function start(isRetry) {
     clearTimeout(connT); clearTimeout(retryT);
-    if (!isRetry) hadPlay = false;      // nur ein frischer Start vergisst, dass der Stream schon lief; Wiederholungen nicht
+    if (!isRetry) { hadPlay = false; initRetries = 0; }      // nur ein frischer Start vergisst, dass der Stream schon lief; Wiederholungen nicht
     resetWatch();
     if (!current) return;
     if (mode === "pod") { savePos(); pod.pause(); podWant = false; playReq++; setMode("radio"); }   // Podcast läuft: zurück zum Radio
@@ -625,7 +637,7 @@ body.pod .seekrow { display: flex; }
 
   // Wiederverbinden nach Abbruch. Jede neue Verbindung ist eine neue Sitzung (Werbung beginnt von vorn),
   // darum wird nicht bei jedem kurzen Puffern neu verbunden, sondern erst nach längerem Stillstand.
-  var hadPlay = false, retries = 0, retryT = null, lastT = -1, stuck = 0;
+  var hadPlay = false, retries = 0, initRetries = 0, retryT = null, lastT = -1, stuck = 0;
   var STUCK_LIMIT = 4;                  // x 3 s ohne Fortschritt = ca. 12 s Stillstand -> neu verbinden
 
   function resetWatch() { lastT = -1; stuck = 0; }
@@ -641,7 +653,7 @@ body.pod .seekrow { display: flex; }
   }
 
   audio.addEventListener("playing", function () {
-    hadPlay = true; resetWatch();
+    hadPlay = true; initRetries = 0; resetWatch();
     document.body.classList.add("playing");
     setStatus("Live", false);
     if (current) { good[current.id] = audio.currentSrc || audio.src; store.set("good", good); }
@@ -656,6 +668,7 @@ body.pod .seekrow { display: flex; }
     tryIdx++;
     var next = candidate();
     if (next) { audio.src = next; audio.load(); audio.play().catch(function () {}); setStatus("Verbinde …", false); }
+    else if (initRetries < 2) { initRetries++; reconnect(); }   // Erstverbindung scheitert oft nur kurz (Hörerlimit, Netzwackler): zweimal neu versuchen
     else fail();
   });
   audio.addEventListener("ended", function () { if (wantPlay) reconnect(); }); // Stream abgebrochen: neu verbinden
