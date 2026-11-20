@@ -1,7 +1,7 @@
 {
-  "name": "Technolovers Radio",
-  "short_name": "TL Radio",
-  "description": "Alle Technolovers.fm-Sender in einer App",
+  "name": "Werbefrei Radio",
+  "short_name": "Radio",
+  "description": "Werbefreie Radiosender, Podcasts, Hörbücher und Notizen in einer App",
   "lang": "de",
   "start_url": "./",
   "scope": "./",

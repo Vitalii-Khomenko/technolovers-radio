@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Technolovers Radio</title>
+<title>Werbefrei Radio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -320,7 +320,7 @@ body.pod .seekrow { display: flex; }
   <section class="grid" id="grid" aria-label="Sender"></section>
 
   <footer class="note">
-    Alle Streams kommen direkt von technolovers.fm (MP3, 192 kbit/s). Die App speichert Favoriten, Lautstärke und den zuletzt gehörten Sender nur in diesem Browser.
+    Die Streams kommen direkt von den Sendern (SomaFM, Intergalactic FM, Proton Radio, NTS) – ohne Werbung. Die App speichert Favoriten, Lautstärke und den zuletzt gehörten Sender nur in diesem Browser.
   </footer>
   </div>
 
@@ -368,7 +368,7 @@ body.pod .seekrow { display: flex; }
     </div>
     <div class="dock-info">
       <div class="t" id="dockT">Kein Sender gewählt</div>
-      <div class="s" id="dockS">Technolovers.fm</div>
+      <div class="s" id="dockS">Werbefrei Radio</div>
     </div>
     <div class="side">
       <div class="vol">
@@ -394,79 +394,46 @@ body.pod .seekrow { display: flex; }
   "use strict";
 
   /* ---------- Stationen ---------- */
-  // cat: Kategorie, h: Farbton, bpm: Tempo laut Sender, slug: Pfad auf stream.technolovers.fm
+  // cat: Kategorie, h: Farbton, bpm: Genre-Zeile auf der Karte, tag: Betreiber, urls: Stream-Adressen (die erste zuerst)
   var CATS = [
     { id: "all",   name: "Alle" },
     { id: "fav",   name: "Favoriten" },
-    { id: "chill", name: "Chill & Lounge", h: 190 },
-    { id: "house", name: "House",          h: 265 },
-    { id: "trance",name: "Trance",         h: 292 },
-    { id: "techno",name: "Techno",         h: 218 },
-    { id: "dance", name: "Dance & EDM",    h: 330 },
-    { id: "hard",  name: "Hard & Bass",    h: 12 }
+    { id: "chill", name: "Chill & Ambient", h: 190 },
+    { id: "house", name: "House & Trance",  h: 265 },
+    { id: "bass",  name: "Bass & Glitch",   h: 12 },
+    { id: "mix",   name: "Eclectic",        h: 330 }
   ];
   var HUE = {}; CATS.forEach(function (c) { if (c.h != null) HUE[c.id] = c.h; });
 
+  // Unabhängige Sender ohne Werbung (spenden- bzw. hörerfinanziert), direkt von deren Servern
   var S = [
-    // Chill & Lounge
-    st("Lounge", "chill", "110–120 BPM", "lounge", "Ambient Chillout"),
-    st("Ibiza House", "chill", "120–128 BPM", "ibiza-house", "Balearic Chill"),
-    st("Tropical House", "chill", "115–125 BPM", "tropical-house", "Easy Listening"),
-    st("Deep House", "chill", "120–128 BPM", "deep-house", "Deep & Warm"),
-    st("Melodic House & Techno", "chill", "124–128 BPM", "melodic-house-techno", "Beach & Sundowner"),
-    st("Minimal", "chill", "Minimal", "minimal", "Reduziert & Hypnotisch"),
-    // House
-    st("House", "house", "House", "house", "Klassisch"),
-    st("Electro House", "house", "Electro House", "electro-house", "Club"),
-    st("Tech House", "house", "Tech House", "techhouse", "Groove"),
-    st("Bass House", "house", "Bass House", "bass-house", "Druckvoll"),
-    st("Funky House", "house", "Funky House", "funky-house", "Funk & Groove"),
-    st("Dirty House", "house", "Dirty House", "dirty-house", "Roh"),
-    st("Afro House", "house", "Afro House", "afro-house", "Percussion"),
-    st("Latin House", "house", "Latin House", "latin-house", "Latin Flavour"),
-    st("Future House", "house", "Future House", "future-house", "Modern"),
-    st("Big Room", "house", "Big Room", "big-room", "Festival-Drops"),
-    // Trance
-    st("Trance", "trance", "128–140 BPM", "trance", "Klassiker"),
-    st("Vocal Trance", "trance", "125–140 BPM", "vocal-trance", "Mit Gesang"),
-    st("Uplifting Trance", "trance", "Uplifting", "uplifting-trance", "Euphorisch"),
-    st("Psytrance", "trance", "130–150 BPM", "psytrance", "Psychedelisch"),
-    // Techno
-    st("Techno", "techno", "Techno", "techno", "Ambient bis Hard"),
-    st("Hypertechno", "techno", "Hypertechno", "hypertechno", "Hart & schnell"),
-    // Dance & EDM
-    st("EDM", "dance", "EDM", "edm", "Club & Dance"),
-    st("Electro", "dance", "Electro", "electro", "Electronic"),
-    st("Melbourne Bounce", "dance", "Melbourne Bounce", "melbourne-bounce", "Bounce"),
-    st("Festival Sounds", "dance", "Festival", "festival-sounds", "Mainstage"),
-    st("Eurodance", "dance", "Eurodance", "eurodance", "90er & Euro"),
-    st("Handsup", "dance", "Handsup", "handsup", "Hands Up"),
-    st("Trap", "dance", "Trap", "trap", "Heavy Beats"),
-    // Hard & Bass
-    st("Hardstyle", "hard", "Hardstyle", "hardstyle", "Kicks"),
-    st("Hardcore", "hard", "Hardcore", "hardcore", "Ultra hart"),
-    st("Frenchcore", "hard", "Frenchcore", "frenchcore", "Frenchcore"),
-    st("Gabber", "hard", "Gabber", "gabber", "Old School"),
-    st("Drum & Bass", "hard", "Drum & Bass", "drum-n-bass", "Breakbeat")
+    ext("Groove Salad", "chill", "Downtempo & Chill", "soma-groovesalad", "SomaFM", soma("groovesalad")),
+    ext("Deep Space One", "chill", "Deep Ambient", "soma-deepspaceone", "SomaFM", soma("deepspaceone")),
+    ext("Drone Zone", "chill", "Ambient", "soma-dronezone", "SomaFM", soma("dronezone")),
+    ext("Lush", "chill", "Sinnlich & Vocal", "soma-lush", "SomaFM", soma("lush")),
+    ext("Secret Agent", "chill", "Lounge & Downtempo", "soma-secretagent", "SomaFM", soma("secretagent")),
+    ext("Space Station Soma", "chill", "Spacige Electronica", "soma-spacestation", "SomaFM", soma("spacestation")),
+    ext("Beat Blender", "house", "Deep House & Downtempo", "soma-beatblender", "SomaFM", soma("beatblender")),
+    ext("The Trip", "house", "Progressive House & Trance", "soma-thetrip", "SomaFM", soma("thetrip")),
+    ext("Proton Radio", "house", "Progressive & Deep", "proton", "Proton Radio", ["https://shoutcast.protonradio.com/stream"]),
+    ext("Cliqhop", "bass", "Glitch & IDM", "soma-cliqhop", "SomaFM", soma("cliqhop")),
+    ext("Dub Step Beyond", "bass", "Dubstep & Dub", "soma-dubstep", "SomaFM", soma("dubstep")),
+    ext("Intergalactic FM", "mix", "Electronic Eclectic", "intergalactic", "Intergalactic FM", ["https://icecast.intergalactic.fm/intergalactic128.mp3"]),
+    ext("NTS 1", "mix", "Eclectic, viel Electronic", "nts-1", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream"]),
+    ext("NTS 2", "mix", "Eclectic, viel Electronic", "nts-2", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream2"])
   ];
-  function st(name, cat, bpm, slug, tag) { return { id: slug, name: name, cat: cat, bpm: bpm, slug: slug, tag: tag }; }
-
-  // Stream-Adresse: Hauptpfad zuerst, danach Schreibvarianten als Rückfall
-  function urlsFor(s) {
-    var base = "https://stream.technolovers.fm/";
-    var list = [base + s.slug];
-    var flat = s.slug.replace(/-/g, "");
-    if (flat !== s.slug) list.push(base + flat);
-    list.push(base + "technolovers-" + s.slug);
-    return list;
-  }
+  function ext(name, cat, genre, id, tag, urls) { return { id: id, name: name, cat: cat, bpm: genre, tag: tag, urls: urls, brand: tag }; }
+  function soma(slug) { return ["https://ice1.somafm.com/" + slug + "-128-mp3", "https://ice2.somafm.com/" + slug + "-128-mp3"]; }
+  function fullName(s) { return s.name.indexOf(s.brand.split(" ")[0]) === 0 ? s.name : s.brand + " " + s.name; }
+  function urlsFor(s) { return s.urls; }
 
   /* ---------- Zustand ---------- */
   var store = {
     get: function (k, d) { try { var v = localStorage.getItem("tl_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set: function (k, v) { try { localStorage.setItem("tl_" + k, JSON.stringify(v)); } catch (e) {} }
   };
-  var favs = store.get("favs", []);
+  var favs = cleanFavs(store.get("favs", []));
+  function cleanFavs(f) { return (Array.isArray(f) ? f : []).filter(function (id) { return byId(id); }); }   // Favoriten gestrichener Sender verwerfen
   var good = store.get("good", {});      // merkt sich je Sender die funktionierende Adresse
   var current = null, filter = "all", query = "", tryIdx = 0, wantPlay = false, failedAll = false;
 
@@ -530,7 +497,7 @@ body.pod .seekrow { display: flex; }
   $("q").addEventListener("input", function (e) { query = e.target.value; renderGrid(); });
 
   function toggleFav(id) {
-    var f = store.get("favs", []); favs = Array.isArray(f) ? f : [];      // frisch: ein anderer Tab hat evtl. Favoriten geändert
+    favs = cleanFavs(store.get("favs", []));      // frisch: ein anderer Tab hat evtl. Favoriten geändert
     var i = favs.indexOf(id);
     if (i >= 0) favs.splice(i, 1); else favs.push(id);
     store.set("favs", favs); renderChips(); renderGrid();
@@ -545,18 +512,26 @@ body.pod .seekrow { display: flex; }
     ["nowSub", "dockS"].forEach(function (id) { var el = $(id); el.textContent = text; el.classList.toggle("err", !!isErr); });
   }
 
+  // Jede neue Verbindung zum Stream ist für den Server eine neue Hörer-Sitzung (Werbung beginnt von vorn).
+  // Darum: Klick auf den bereits laufenden Sender verbindet nicht neu, und beim schnellen Umschalten
+  // wird nur zum zuletzt gewählten Sender verbunden.
+  var connT = null, CONNECT_DELAY = 350;
+
   function select(id, autoplay) {
     var s = byId(id); if (!s) return;
+    if (autoplay && current && current.id === s.id && mode === "radio" && wantPlay && !failedAll) return;   // läuft schon
     current = s; tryIdx = 0; failedAll = false;
     store.set("last", id);
     setHue(s.cat);
     $("nowName").textContent = s.name;
-    $("dockT").textContent = "Technolovers " + s.name;
+    $("dockT").textContent = fullName(s);
     $("nowLabel").textContent = s.tag;
-    document.title = s.name + " · Technolovers Radio";
+    document.title = fullName(s) + " · Werbefrei Radio";
     renderGrid();
     updateMedia();
-    if (autoplay) start();
+    clearTimeout(connT);
+    if (autoplay && !wantPlay) start();            // erster Start direkt im Klick (Autoplay-Regeln, v. a. iOS)
+    else if (autoplay) { setStatus("Verbinde …", false); connT = setTimeout(start, CONNECT_DELAY); }
     else setStatus("Bereit. Tippe auf Play.", false);
   }
 
@@ -569,6 +544,8 @@ body.pod .seekrow { display: flex; }
   }
 
   function start() {
+    clearTimeout(connT); clearTimeout(retryT);
+    hadPlay = false; resetWatch();
     if (!current) return;
     if (mode === "pod") { savePos(); pod.pause(); podWant = false; playReq++; setMode("radio"); }   // Podcast läuft: zurück zum Radio
     wantPlay = true; failedAll = false;
@@ -587,12 +564,13 @@ body.pod .seekrow { display: flex; }
   }
 
   function stop() {
+    clearTimeout(connT); clearTimeout(retryT); retries = 0;
     wantPlay = false;
     audio.pause();
     audio.removeAttribute("src");
     audio.load();                       // Live-Stream nicht weiter puffern
     document.body.classList.remove("playing");
-    setStatus(current ? "Pausiert" : "Technolovers.fm", false);
+    setStatus(current ? "Pausiert" : "Werbefrei Radio", false);
     syncPlayIcon();
   }
 
@@ -604,9 +582,27 @@ body.pod .seekrow { display: flex; }
     syncPlayIcon();
   }
 
+  // Wiederverbinden nach Abbruch. Jede neue Verbindung ist eine neue Sitzung (Werbung beginnt von vorn),
+  // darum wird nicht bei jedem kurzen Puffern neu verbunden, sondern erst nach längerem Stillstand.
+  var hadPlay = false, retries = 0, retryT = null, lastT = -1, stuck = 0;
+  var STUCK_LIMIT = 4;                  // x 3 s ohne Fortschritt = ca. 12 s Stillstand -> neu verbinden
+
+  function resetWatch() { lastT = -1; stuck = 0; }
+
+  function reconnect() {
+    clearTimeout(retryT);
+    if (!wantPlay || mode !== "radio" || !current) return;
+    retries++;
+    var wait = Math.min(1000 * retries, 5000);
+    setStatus("Verbinde neu …", false);
+    document.body.classList.remove("playing");
+    retryT = setTimeout(function () { if (wantPlay && mode === "radio") start(); }, wait);
+  }
+
   audio.addEventListener("playing", function () {
+    hadPlay = true; resetWatch();
     document.body.classList.add("playing");
-    setStatus("Live · 192 kbit/s", false);
+    setStatus("Live", false);
     if (current) { good[current.id] = audio.currentSrc || audio.src; store.set("good", good); }
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
     syncPlayIcon();
@@ -615,17 +611,28 @@ body.pod .seekrow { display: flex; }
   audio.addEventListener("stalled", function () { if (wantPlay) setStatus("Verbindung wackelt …", false); });
   audio.addEventListener("error", function () {
     if (!wantPlay || !current) return;
+    if (hadPlay) { hadPlay = false; reconnect(); return; }   // lief schon: gleiche Adresse neu versuchen, nicht auf Schreibvarianten ausweichen
     tryIdx++;
     var next = candidate();
     if (next) { audio.src = next; audio.load(); audio.play().catch(function () {}); setStatus("Verbinde …", false); }
     else fail();
   });
-  audio.addEventListener("ended", function () { if (wantPlay) start(); }); // Stream abgebrochen: neu verbinden
+  audio.addEventListener("ended", function () { if (wantPlay) reconnect(); }); // Stream abgebrochen: neu verbinden
+
+  // Wächter: bleibt die Wiedergabe hängen (kein Fortschritt, auch ohne Fehler-Ereignis), wird neu verbunden
+  setInterval(function () {
+    if (!wantPlay || mode !== "radio" || !current) return;
+    var t = audio.currentTime;
+    if (!audio.paused && t === lastT) { if (++stuck >= STUCK_LIMIT) { resetWatch(); hadPlay = false; reconnect(); } }
+    else { lastT = t; stuck = 0; if (t > 0) retries = 0; }
+  }, 3000);
+  // Netz ist zurück: nur neu verbinden, wenn der Stream tatsächlich hängt (beim nächsten Wächter-Tick)
+  window.addEventListener("online", function () { if (wantPlay && mode === "radio") stuck = Math.max(stuck, STUCK_LIMIT - 1); });
 
   function toggle() {
     if (mode === "pod") { podToggle(); return; }
     if (!current) {
-      var last = byId(store.get("last", "")) || byId("lounge");
+      var last = byId(store.get("last", "")) || S[0];
       select(last.id, true); return;
     }
     if (wantPlay) stop(); else start();
@@ -696,7 +703,7 @@ body.pod .seekrow { display: flex; }
   /* ---------- Sperrbildschirm-Steuerung ---------- */
   function updateMedia() {
     if (!("mediaSession" in navigator) || !current) return;
-    try { navigator.mediaSession.metadata = new MediaMetadata({ title: "Technolovers " + current.name, artist: "Technolovers.fm", album: current.tag }); } catch (e) {}
+    try { navigator.mediaSession.metadata = new MediaMetadata({ title: fullName(current), artist: current.brand, album: current.tag }); } catch (e) {}
   }
   if ("mediaSession" in navigator) {
     var ms = navigator.mediaSession;
@@ -1041,7 +1048,7 @@ body.pod .seekrow { display: flex; }
     curEp = ep; podWant = true; rawTried = false;
     if (ep.kind === "book") rememberBookTrack(ep);
     $("dockT").textContent = ep.title; podStatus(ep.show, false);
-    document.title = ep.title + " · Technolovers Radio";
+    document.title = ep.title + " · Werbefrei Radio";
     podMedia(); syncPlayIcon(); refreshPod();
     resolveSrc(ep).then(function (src) {
       if (my !== playReq || mode !== "pod") return;       // inzwischen andere Folge gewählt oder zum Radio gewechselt
@@ -1273,7 +1280,7 @@ body.pod .seekrow { display: flex; }
     podWant = false; curEp = null;
     if (mode !== "pod") return;                           // das Radio belegt den Player/Dock: nur die alte Buch-Quelle lösen, Dock nicht anfassen
     podMs("none");                                        // nichts mehr geladen
-    $("dockT").textContent = "Kein Sender gewählt"; podStatus("Technolovers.fm", false); syncPlayIcon();
+    $("dockT").textContent = "Kein Sender gewählt"; podStatus("Werbefrei Radio", false); syncPlayIcon();
   }
 
   /* -- Hinzufügen -- */
@@ -2413,7 +2420,7 @@ body.pod .seekrow { display: flex; }
   }
   function syncFromStorage(k) {
     var all = k == null;                                    // null: der Speicher wurde ganz geleert
-    if (all || k === "tl_favs") { var f = store.get("favs", []); favs = Array.isArray(f) ? f : []; if (view === "radio") { renderChips(); renderGrid(); } }
+    if (all || k === "tl_favs") { favs = cleanFavs(store.get("favs", [])); if (view === "radio") { renderChips(); renderGrid(); } }
     if (all || k === "tl_pos" || k === "tl_done") loadProgress();
     // "gehört" ändert Knöpfe und Markierungen: sichtbare Liste neu zeichnen. (tl_pos nicht: das schreibt ein spielender Tab alle 5 s,
     // und die Position steuert keinen Knopf.)
