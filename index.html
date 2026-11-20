@@ -129,6 +129,20 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
 input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 0; }
 .sleep { font: 500 .78rem var(--font-body); width: auto; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); height: 34px; color: var(--muted); }
 .sleep.on { color: var(--accent); border-color: var(--accent); }
+/* Einschlaf-Timer: Bedienfeld über dem Dock */
+.sleeppanel { position: fixed; right: 14px; bottom: calc(96px + var(--safe-b)); z-index: 20; width: min(320px, calc(100% - 28px)); padding: 14px; border-radius: 20px; background: rgba(14,19,40,.96); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+.sp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.sp-title { font: 600 .9rem var(--font-display); }
+.sp-left { font: 600 1.6rem/1 var(--font-display); font-variant-numeric: tabular-nums; color: var(--muted); }
+.sp-left.on { color: var(--accent); }
+.sp-lbl { margin: 14px 0 6px; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.sp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sp-adj { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.spb { font: 500 .82rem var(--font-body); height: 36px; border-radius: 12px; border: 1px solid var(--line); background: var(--glass); color: var(--ink); cursor: pointer; transition: .2s; }
+.spb:hover:not(:disabled) { background: var(--glass-hi); }
+.spb:disabled { opacity: .35; cursor: default; }
+.spb.off { width: 100%; margin-top: 12px; border-color: rgba(255,155,138,.5); color: #ff9b8a; }
+.sp-hint { margin-top: 10px; font-size: .72rem; line-height: 1.4; color: var(--muted); }
 
 /* mode switch (Radio / Podcasts) */
 [hidden] { display: none !important; }
@@ -276,8 +290,9 @@ body.pod .seekrow { display: flex; }
   .vol { flex: 1; } input[type=range] { width: 100%; max-width: 220px; }
   body { padding-bottom: calc(150px + var(--safe-b)); }
   body.pod { padding-bottom: calc(200px + var(--safe-b)); }
-  .toast { bottom: calc(150px + var(--safe-b)); }
-  body.pod .toast { bottom: calc(200px + var(--safe-b)); }
+  .toast, .sleeppanel { bottom: calc(150px + var(--safe-b)); }
+  body.pod .toast, body.pod .sleeppanel { bottom: calc(200px + var(--safe-b)); }
+  .sleeppanel { left: 14px; width: auto; }
   .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .pod-row { grid-template-columns: 56px 1fr; }
   .trk { grid-template-columns: 30px 1fr; }
@@ -377,7 +392,7 @@ body.pod .seekrow { display: flex; }
         <button class="btn" id="mute" aria-label="Stumm schalten" style="width:36px;height:36px"><svg id="volIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
         <input type="range" id="vol" min="0" max="100" value="80" aria-label="Lautstärke">
       </div>
-      <button class="btn sleep" id="sleep" aria-label="Einschlaf-Timer">Timer aus</button>
+      <button class="btn sleep" id="sleep" aria-label="Einschlaf-Timer" aria-haspopup="dialog" aria-expanded="false" aria-controls="sleepPanel">Timer aus</button>
     </div>
     <div class="seekrow" id="seekrow">
       <span class="tm" id="tCur">0:00</span>
@@ -388,6 +403,21 @@ body.pod .seekrow { display: flex; }
       <button class="btn sleep" id="rate" aria-label="Wiedergabetempo">1×</button>
     </div>
   </div>
+</div>
+<div class="sleeppanel" id="sleepPanel" role="dialog" aria-label="Einschlaf-Timer" hidden>
+  <div class="sp-head"><span class="sp-title">Einschlaf-Timer</span><span class="sp-left" id="spLeft" aria-live="off">Aus</span></div>
+  <div class="sp-lbl">Starten in Minuten</div>
+  <div class="sp-grid">
+    <button class="spb" data-min="5">5</button><button class="spb" data-min="15">15</button><button class="spb" data-min="30">30</button>
+    <button class="spb" data-min="45">45</button><button class="spb" data-min="60">60</button><button class="spb" data-min="90">90</button>
+  </div>
+  <div class="sp-lbl">Zeit ändern</div>
+  <div class="sp-adj">
+    <button class="spb" data-adj="-15" aria-label="15 Minuten weniger">−15</button><button class="spb" data-adj="-5" aria-label="5 Minuten weniger">−5</button>
+    <button class="spb" data-adj="5" aria-label="5 Minuten mehr">+5</button><button class="spb" data-adj="15" aria-label="15 Minuten mehr">+15</button>
+  </div>
+  <button class="spb off" id="spOff" disabled>Timer aus</button>
+  <div class="sp-hint">Die Lautstärke sinkt in den letzten 20 Sekunden langsam, dann wird pausiert.</div>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 
@@ -403,7 +433,8 @@ body.pod .seekrow { display: flex; }
     { id: "chill", name: "Chill & Ambient", h: 190 },
     { id: "house", name: "House & Trance",  h: 265 },
     { id: "bass",  name: "Bass & Glitch",   h: 12 },
-    { id: "mix",   name: "Eclectic",        h: 330 }
+    { id: "mix",   name: "Eclectic",        h: 330 },
+    { id: "world", name: "Weltweit",        h: 150 }
   ];
   var HUE = {}; CATS.forEach(function (c) { if (c.h != null) HUE[c.id] = c.h; });
 
@@ -420,7 +451,16 @@ body.pod .seekrow { display: flex; }
     ext("Cliqhop", "bass", "Glitch & IDM", "soma-cliqhop", "SomaFM", soma("cliqhop")),
     ext("Dub Step Beyond", "bass", "Dubstep & Dub", "soma-dubstep", "SomaFM", soma("dubstep")),
     ext("NTS 1", "mix", "Eclectic, viel Electronic", "nts-1", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream"]),
-    ext("NTS 2", "mix", "Eclectic, viel Electronic", "nts-2", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream2"])
+    ext("NTS 2", "mix", "Eclectic, viel Electronic", "nts-2", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream2"]),
+    // Weltweit: öffentlich-rechtliche bzw. hörerfinanzierte Sender ohne Werbung
+    ext("FIP", "world", "Frankreich · Eclectic", "fip", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fip-midfi.mp3"]),
+    ext("FIP Electro", "world", "Frankreich · Electro", "fip-electro", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fipelectro-midfi.mp3"]),
+    ext("FIP Groove", "world", "Frankreich · Groove & Funk", "fip-groove", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fipgroove-midfi.mp3"]),
+    ext("FIP Jazz", "world", "Frankreich · Jazz", "fip-jazz", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fipjazz-midfi.mp3"]),
+    ext("FIP World", "world", "Frankreich · Weltmusik", "fip-world", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fipworld-midfi.mp3"]),
+    ext("DLF Nova", "world", "Deutschland · Pop, Indie & Electronic", "dlf-nova", "DLF Nova · Deutschland", ["https://st03.sslstream.dlf.de/dlf/03/128/mp3/stream.mp3"]),
+    ext("KEXP", "world", "USA · Indie & Eclectic", "kexp", "KEXP · USA", ["https://kexp-mp3-128.streamguys1.com/kexp128.mp3"]),
+    ext("Radio Paradise", "world", "USA · Eclectic Rock & Mix", "radioparadise", "Radio Paradise · USA", ["https://stream.radioparadise.com/mp3-128"])
   ];
   function ext(name, cat, genre, id, tag, urls) { return { id: id, name: name, cat: cat, bpm: genre, tag: tag, urls: urls, brand: tag }; }
   function soma(slug) { return ["https://ice1.somafm.com/" + slug + "-128-mp3", "https://ice2.somafm.com/" + slug + "-128-mp3"]; }
@@ -659,7 +699,7 @@ body.pod .seekrow { display: flex; }
   $("next").addEventListener("click", function () { step(1); });
   $("prev").addEventListener("click", function () { step(-1); });
   // Eingabefelder (auch Auswahllisten) behalten ihre Tasten; mit Alt/Strg/Cmd sind es Browser-Kürzel (Alt+← = Zurück)
-  function typing(t) { var n = t && t.tagName; return n === "INPUT" || n === "SELECT" || n === "TEXTAREA" || !!(t && t.isContentEditable); }
+  function typing(t) { var n = t && t.tagName; return n === "INPUT" || n === "SELECT" || n === "TEXTAREA" || !!(t && (t.isContentEditable || (t.closest && t.closest("#sleepPanel")))); }
   document.addEventListener("keydown", function (e) {
     if (typing(e.target) || view === "note" || e.altKey || e.ctrlKey || e.metaKey) return;     // beim Lesen scrollt die Leertaste die Notiz
     if (e.code === "Space") { e.preventDefault(); toggle(); }
@@ -672,12 +712,14 @@ body.pod .seekrow { display: flex; }
   });
 
   /* ---------- Lautstärke ---------- */
-  var vol = $("vol"), muted = false;
+  var vol = $("vol"), muted = false, fade = 1;
   function applyVol() {
-    var v = muted ? 0 : vol.value / 100;
+    var base = muted ? 0 : vol.value / 100;
+    var v = base * fade;                // fade: Ausblenden des Einschlaf-Timers (1 = normal)
     audio.volume = v;
+    if (pod) pod.volume = v;
     vol.style.setProperty("--p", vol.value + "%");
-    $("volIcon").style.opacity = v === 0 ? .4 : 1;
+    $("volIcon").style.opacity = base === 0 ? .4 : 1;
   }
   vol.value = store.get("vol", 80);
   vol.addEventListener("input", function () { muted = false; store.set("vol", +vol.value); applyVol(); });
@@ -685,21 +727,77 @@ body.pod .seekrow { display: flex; }
   applyVol();
 
   /* ---------- Einschlaf-Timer ---------- */
-  var STEPS = [0, 15, 30, 60, 90], stepI = 0, sleepEnd = 0, sleepTick = null;
-  $("sleep").addEventListener("click", function () {
-    stepI = (stepI + 1) % STEPS.length;
-    clearInterval(sleepTick);
-    var btn = $("sleep");
-    if (!STEPS[stepI]) { btn.textContent = "Timer aus"; btn.classList.remove("on"); return; }
-    sleepEnd = Date.now() + STEPS[stepI] * 60000;
-    btn.classList.add("on");
-    function tick() {
-      var left = Math.max(0, sleepEnd - Date.now());
-      if (left === 0) { clearInterval(sleepTick); stepI = 0; btn.textContent = "Timer aus"; btn.classList.remove("on"); if (mode === "pod") podPause(); else stop(); setStatus("Einschlaf-Timer beendet", false); return; }
-      btn.textContent = "Noch " + Math.ceil(left / 60000) + " min";
-    }
-    tick(); sleepTick = setInterval(tick, 15000);
+  // Laufzeit 1 bis 240 Minuten; Auswahl, Erhöhen, Verringern und Abbrechen im Bedienfeld.
+  var SLEEP_MIN = 60000, SLEEP_MAX = 240 * 60000, FADE_MS = 20000;
+  var sleepEnd = 0, sleepTick = null;
+  var spBtn = $("sleep"), spPanel = $("sleepPanel");
+
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function fmtLeft(ms) {
+    var s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+    return (h ? h + ":" + pad2(m) : m) + ":" + pad2(s % 60);
+  }
+  function sleepRender() {
+    var on = sleepEnd > 0, left = on ? Math.max(0, sleepEnd - Date.now()) : 0;
+    spBtn.classList.toggle("on", on);
+    spBtn.textContent = !on ? "Timer aus" : left >= 60000 ? "Noch " + Math.ceil(left / 60000) + " min" : "Noch " + Math.ceil(left / 1000) + " s";
+    $("spLeft").textContent = on ? fmtLeft(left) : "Aus";
+    $("spLeft").classList.toggle("on", on);
+    $("spOff").disabled = !on;
+    Array.prototype.forEach.call(spPanel.querySelectorAll("[data-adj]"), function (b) { b.disabled = !on; });
+  }
+  function setFade(f) { if (f !== fade) { fade = f; applyVol(); } }
+  function sleepLoop() {
+    clearTimeout(sleepTick);
+    if (!sleepEnd) return;
+    var left = sleepEnd - Date.now();
+    if (left <= 0) { sleepFire(); return; }
+    setFade(left >= FADE_MS ? 1 : left / FADE_MS);
+    sleepRender();
+    sleepTick = setTimeout(sleepLoop, left <= FADE_MS ? 250 : Math.max(50, Math.min(1000, left - FADE_MS)));
+  }
+  function sleepSet(ms) {                       // Restzeit auf ms setzen (begrenzt)
+    sleepEnd = Date.now() + Math.max(SLEEP_MIN, Math.min(SLEEP_MAX, ms));
+    setFade(1);
+    sleepLoop();
+  }
+  function sleepAdd(min) {                      // Restzeit um min Minuten ändern; ohne laufenden Timer nur Erhöhen starten
+    if (!sleepEnd && min < 0) return;
+    sleepSet((sleepEnd ? sleepEnd - Date.now() : 0) + min * 60000);
+  }
+  function sleepCancel() {
+    sleepEnd = 0; clearTimeout(sleepTick);
+    setFade(1);
+    sleepRender();
+  }
+  function sleepFire() {
+    sleepEnd = 0; clearTimeout(sleepTick);
+    if (mode === "pod") podPause(); else stop();
+    setFade(1);                                 // Lautstärke für das nächste Abspielen zurücksetzen
+    sleepRender();
+    setStatus("Einschlaf-Timer beendet", false);
+  }
+  function sleepPanel(open) {
+    spPanel.hidden = !open;
+    spBtn.setAttribute("aria-expanded", String(open));
+    if (open) sleepRender();
+  }
+
+  spBtn.addEventListener("click", function () { sleepPanel(spPanel.hidden); });
+  spPanel.addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b || b.disabled) return;
+    if (b.hasAttribute("data-min")) sleepSet(+b.getAttribute("data-min") * 60000);
+    else if (b.hasAttribute("data-adj")) sleepAdd(+b.getAttribute("data-adj"));
+    else if (b.id === "spOff") sleepCancel();
   });
+  document.addEventListener("click", function (e) {            // Klick daneben schließt das Bedienfeld
+    if (!spPanel.hidden && !spPanel.contains(e.target) && !spBtn.contains(e.target)) sleepPanel(false);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !spPanel.hidden) { sleepPanel(false); spBtn.focus(); }
+  });
+  // Versteckte Tabs drosseln Zeitgeber: beim Zurückkehren sofort prüfen, ob der Timer abgelaufen ist
+  document.addEventListener("visibilitychange", function () { if (sleepEnd) sleepLoop(); });
 
   /* ---------- Sperrbildschirm-Steuerung ---------- */
   function updateMedia() {
