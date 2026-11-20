@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0e1a">
+<!-- Kein Referer senden: SomaFM antwortet auf Anfragen von fremden Seiten (github.io, localhost) mit 403; zudem datensparsamer -->
+<meta name="referrer" content="no-referrer">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TL Radio">
@@ -320,7 +322,7 @@ body.pod .seekrow { display: flex; }
   <section class="grid" id="grid" aria-label="Sender"></section>
 
   <footer class="note">
-    Die Streams kommen direkt von den Sendern (SomaFM, Intergalactic FM, Proton Radio, NTS) – ohne Werbung. Die App speichert Favoriten, Lautstärke und den zuletzt gehörten Sender nur in diesem Browser.
+    Die Streams kommen direkt von den Sendern (SomaFM, NTS) – ohne Werbung. Die App speichert Favoriten, Lautstärke und den zuletzt gehörten Sender nur in diesem Browser.
   </footer>
   </div>
 
@@ -415,10 +417,8 @@ body.pod .seekrow { display: flex; }
     ext("Space Station Soma", "chill", "Spacige Electronica", "soma-spacestation", "SomaFM", soma("spacestation")),
     ext("Beat Blender", "house", "Deep House & Downtempo", "soma-beatblender", "SomaFM", soma("beatblender")),
     ext("The Trip", "house", "Progressive House & Trance", "soma-thetrip", "SomaFM", soma("thetrip")),
-    ext("Proton Radio", "house", "Progressive & Deep", "proton", "Proton Radio", ["https://shoutcast.protonradio.com/stream"]),
     ext("Cliqhop", "bass", "Glitch & IDM", "soma-cliqhop", "SomaFM", soma("cliqhop")),
     ext("Dub Step Beyond", "bass", "Dubstep & Dub", "soma-dubstep", "SomaFM", soma("dubstep")),
-    ext("Intergalactic FM", "mix", "Electronic Eclectic", "intergalactic", "Intergalactic FM", ["https://icecast.intergalactic.fm/intergalactic128.mp3"]),
     ext("NTS 1", "mix", "Eclectic, viel Electronic", "nts-1", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream"]),
     ext("NTS 2", "mix", "Eclectic, viel Electronic", "nts-2", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream2"])
   ];
