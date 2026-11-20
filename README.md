@@ -1,6 +1,6 @@
-# Technolovers Radio
+# Werbefrei Radio
 
-A small web app for listening to all [technolovers.fm](https://technolovers.fm) stations, plus podcasts, your own audiobooks and Markdown notes. It is one HTML file with no build step and no dependencies, and it can be installed as an app (PWA).
+A small web app for listening to ad-free electronic and ambient radio stations, plus podcasts, your own audiobooks and Markdown notes. It is one HTML file with no build step and no dependencies, and it can be installed as an app (PWA).
 
 **Live:** https://esildooor-commits.github.io/technolovers-radio/
 
@@ -11,9 +11,13 @@ The interface is in German.
 The app has four tabs:
 
 ### Radio
-- 34 stations in six categories: Chill & Lounge, House, Trance, Techno, Dance & EDM, Hard & Bass.
+- 14 ad-free stations from independent, listener-funded broadcasters, in four categories: Chill & Ambient, House & Trance, Bass & Glitch, Eclectic.
+  - [SomaFM](https://somafm.com): Groove Salad, Deep Space One, Drone Zone, Lush, Secret Agent, Space Station Soma, Beat Blender, The Trip, Cliqhop, Dub Step Beyond.
+  - [Proton Radio](https://www.protonradio.com), [Intergalactic FM](https://intergalactic.fm), and the two channels of [NTS Radio](https://www.nts.live).
+  - The streams are played straight from the stations' own servers. The app does not add or remove anything.
 - Search, category filter and favourites.
-- If a stream address does not answer, the app tries other spellings of it. The address that worked is remembered for next time.
+- If a stream address does not answer, the app tries its backup address (SomaFM has two servers) and reconnects by itself when a stream stalls or drops.
+- Clicking the station that is already playing does nothing, and switching quickly connects only to the last station you chose.
 - Volume and mute, plus a sleep timer (15, 30, 60 or 90 minutes).
 - Lock-screen and media-key controls (Media Session API).
 - Keyboard: <kbd>Space</kbd> plays or pauses, <kbd>←</kbd>/<kbd>→</kbd> switch stations (in the podcast player they jump back 15 s or forward 30 s).
@@ -53,7 +57,7 @@ There is no account and no server-side storage. Everything stays in the browser:
 Imported books and notes are **copies**, so they use as much space as the original files. Clearing the site data removes them; the originals on your device are not touched.
 
 Network requests go only to:
-- the stream server;
+- the stream servers (somafm.com, intergalactic.fm, protonradio.com and ntslive.net);
 - the iTunes Search API;
 - the podcast hosts;
 - Google Fonts.

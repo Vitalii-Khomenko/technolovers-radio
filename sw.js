@@ -1,6 +1,6 @@
 /* Service Worker: legt nur die App-Hülle in den Cache.
    Radio-Streams (fremde Adressen) laufen immer direkt, nie über den Cache. */
-const CACHE = "tl-radio-v3";
+const CACHE = "radio-v4";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];
 
 self.addEventListener("install", (e) => {
