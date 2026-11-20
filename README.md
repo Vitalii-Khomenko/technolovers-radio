@@ -11,10 +11,11 @@ The interface is in German.
 The app has four tabs:
 
 ### Radio
-- 14 ad-free stations from independent, listener-funded broadcasters, in four categories: Chill & Ambient, House & Trance, Bass & Glitch, Eclectic.
+- 12 ad-free stations from independent, listener-funded broadcasters, in four categories: Chill & Ambient, House & Trance, Bass & Glitch, Eclectic.
   - [SomaFM](https://somafm.com): Groove Salad, Deep Space One, Drone Zone, Lush, Secret Agent, Space Station Soma, Beat Blender, The Trip, Cliqhop, Dub Step Beyond.
-  - [Proton Radio](https://www.protonradio.com), [Intergalactic FM](https://intergalactic.fm), and the two channels of [NTS Radio](https://www.nts.live).
+  - The two channels of [NTS Radio](https://www.nts.live).
   - The streams are played straight from the stations' own servers. The app does not add or remove anything.
+  - The app sends no `Referer` header (`<meta name="referrer">`). SomaFM answers requests that carry a foreign `Referer`, such as from `github.io` or `localhost`, with 403.
 - Search, category filter and favourites.
 - If a stream address does not answer, the app tries its backup address (SomaFM has two servers) and reconnects by itself when a stream stalls or drops.
 - Clicking the station that is already playing does nothing, and switching quickly connects only to the last station you chose.
@@ -57,7 +58,7 @@ There is no account and no server-side storage. Everything stays in the browser:
 Imported books and notes are **copies**, so they use as much space as the original files. Clearing the site data removes them; the originals on your device are not touched.
 
 Network requests go only to:
-- the stream servers (somafm.com, intergalactic.fm, protonradio.com and ntslive.net);
+- the stream servers (somafm.com and ntslive.net);
 - the iTunes Search API;
 - the podcast hosts;
 - Google Fonts.
