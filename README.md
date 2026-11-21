@@ -1,20 +1,20 @@
-# Werbefrei Radio
+# Technolovers Radio
 
 A small web app for listening to ad-free electronic and ambient radio stations, plus podcasts, your own audiobooks and Markdown notes. It is one HTML file with no build step and no dependencies, and it can be installed as an app (PWA).
 
 **Live:** https://esildooor-commits.github.io/technolovers-radio/
 
-The interface is in German.
+The interface is in English.
 
 ## Features
 
 The app has four tabs:
 
 ### Radio
-- 32 ad-free stations from independent, listener-funded or public broadcasters, in five categories: Chill & Ambient, House & Trance, Bass & Glitch, Eclectic, Weltweit (worldwide).
+- 32 ad-free stations from independent, listener-funded or public broadcasters, in five categories: Chill & Ambient, House & Trance, Bass & Glitch, Eclectic, Worldwide.
   - [SomaFM](https://somafm.com): Groove Salad, Deep Space One, Drone Zone, Lush, Secret Agent, Space Station Soma, Beat Blender, The Trip, Cliqhop, Dub Step Beyond.
   - The two channels of [NTS Radio](https://www.nts.live) (UK).
-  - Weltweit (the country is shown on each card, so you can search for it):
+  - Worldwide (the country is shown on each card):
     - France: [FIP](https://www.radiofrance.fr/fip) (general, Electro, Groove, Jazz, World)
     - Germany: [DLF Nova](https://www.deutschlandfunknova.de)
     - USA: [KEXP](https://www.kexp.org), [Radio Paradise](https://radioparadise.com), [dublab](https://dublab.org)
@@ -26,9 +26,10 @@ The app has four tabs:
     - Japan and South Korea: [LISTEN.moe](https://listen.moe) (J-Pop and K-Pop)
   - The streams are played straight from the stations' own servers. The app does not add or remove anything.
   - The app sends no `Referer` header (`<meta name="referrer">`). SomaFM answers requests that carry a foreign `Referer`, such as from `github.io` or `localhost`, with 403.
-- Search, category filter and favourites.
+- Category filter and favourites.
 - If a stream address does not answer, the app tries its backup address (SomaFM has two servers) and, if the first connection fails, retries twice before giving up. It also reconnects by itself when a stream stalls or drops.
 - Clicking the station that is already playing does nothing, and switching quickly connects only to the last station you chose.
+- Easy on the battery: no permanent background animation. The player animation runs in a few steps per second, only while a station plays and the top of the page is on screen.
 - Volume and mute, plus a sleep timer: pick 5–90 minutes, add or take off 5 or 15 minutes while it runs, or cancel it. It shows a live countdown and fades the volume out over the last 20 seconds before pausing.
 - Lock-screen and media-key controls (Media Session API).
 - Keyboard: <kbd>Space</kbd> plays or pauses, <kbd>←</kbd>/<kbd>→</kbd> switch stations (in the podcast player they jump back 15 s or forward 30 s).
@@ -41,19 +42,19 @@ The app has four tabs:
 - Downloads are stored in the browser, so they also play offline. You can also save them as a file.
 - Playback speed from 0.75× to 2×, and buttons to skip back 15 s or forward 30 s.
 
-### Audiobooks (Bücher)
+### Audiobooks
 - Import a folder (subfolders are included) or single files. Supported formats: mp3, m4a, m4b, aac, ogg, oga, opus, wav, flac.
 - Chapters are sorted in natural order (1, 2, 10). You can re-sort them by name, date or size, or by dragging.
 - The app remembers progress and the current chapter, and you can mark chapters as heard. You can keep several books and add chapters to a book later.
 
-### Notes (Notizen)
+### Notes
 - A read-only Markdown viewer for a folder such as an Obsidian vault. It aims to look like the preview in Obsidian or VS Code.
 - Supported Markdown:
   - headings, lists, task lists, tables, quotes, footnotes and front-matter properties;
   - Obsidian wikilinks, embeds and callouts;
   - images, and highlighting for common programming languages.
 - Table of contents, full-text search, adjustable font size, and the scroll position is remembered for each note.
-- "Aktualisieren" (refresh) loads a newer copy of the folder. Hidden folders such as `.obsidian` are skipped.
+- "Refresh" loads a newer copy of the folder. Hidden folders such as `.obsidian` are skipped.
 - HTML inside notes is never executed. Formulas and Mermaid diagrams are shown as plain text.
 
 ## Privacy and storage
@@ -85,6 +86,28 @@ python3 -m http.server 8000
 
 Then open http://localhost:8000/.
 
+## Tests
+
+The app has no runtime dependencies, but it has an automated test suite. The tests run `index.html` in [jsdom](https://github.com/jsdom/jsdom) with a fake `Audio` element, a fake clock and a fake IndexedDB, so they need no browser, no network and no waiting.
+
+```sh
+npm install
+npm test
+```
+
+| File | What it covers |
+|---|---|
+| `tests/radio.test.js` | Starting and switching stations, backup addresses, reconnecting, the stall watchdog, no timers while idle |
+| `tests/sleep.test.js` | Sleep timer: presets, adjusting, limits, cancel, countdown, fade-out, expiry (radio and podcasts) |
+| `tests/stations.test.js` | The station list (https only, known providers), categories, favourites, start-up state, no radio search |
+| `tests/battery.test.js` | Battery rules checked on the stylesheet and script: no blur, no permanent animation, stepped animations, one interval |
+| `tests/repo.test.js` | English-only rule, app name, manifest, service worker and icons |
+| `tests/podcast.test.js`, `tests/books.test.js`, `tests/notes.test.js`, `tests/review.test.js` | Podcasts, audiobooks, the Markdown notes reader and regressions from earlier code reviews |
+| `tests/helpers.js` | Shared helpers: boots the app with a fake `Audio` and a controllable clock (`a.run(ms)` lets time pass) |
+| `tests/render.js` | Debugging helper that prints how a Markdown file is rendered (`node tests/render.js note.md`) |
+
+Run a single file with `node --test --test-force-exit tests/radio.test.js`. Tests that open the real browser behaviour (layout, real streams) are not part of the suite: check those by hand in a browser.
+
 ## Project structure
 
 | File | Purpose |
@@ -93,6 +116,9 @@ Then open http://localhost:8000/.
 | `sw.js` | Service worker. It caches only the app shell, so the app opens offline. Streams and podcast files are never cached by it. |
 | `manifest.webmanifest` | PWA manifest (name, colours, icons) |
 | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | App icons |
+| `tests/` | Automated tests (see above) |
+| `package.json`, `package-lock.json` | Only used for the tests (jsdom and fake-indexeddb as dev dependencies) |
+| `CLAUDE.md` | Project rules for AI assistants (language rule, things that are easy to get wrong) |
 
 ## Deployment
 
@@ -100,7 +126,18 @@ The site is published with GitHub Pages from the root of the `main` branch, so c
 
 ## Browser support
 
-The app is built for current Chrome, Edge, Firefox and Safari, on desktop and mobile. Folder import needs a browser that supports picking folders; where that is not available, use "Einzelne Dateien" (single files).
+The app is built for current Chrome, Edge, Firefox and Safari, on desktop and mobile. Folder import needs a browser that supports picking folders; where that is not available, use "Single files".
+
+## Language rule
+
+Everything in this repository is written in **English only**:
+
+- the interface of the app: buttons, labels, `aria-label`s, placeholders, status and error messages, tooltips, station genre lines, `lang` attributes and date formats;
+- code comments;
+- documentation (this README, `CLAUDE.md`);
+- commit messages and pull request titles and descriptions.
+
+Do not add German or any other language. Names of stations, shows and countries are written the way the broadcaster or the English language writes them (for example "France", "Netherlands").
 
 ## Developers
 

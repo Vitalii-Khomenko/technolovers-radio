@@ -1,8 +1,8 @@
 {
-  "name": "Werbefrei Radio",
-  "short_name": "Radio",
-  "description": "Werbefreie Radiosender, Podcasts, Hörbücher und Notizen in einer App",
-  "lang": "de",
+  "name": "Technolovers Radio",
+  "short_name": "TL Radio",
+  "description": "Ad-free radio stations, podcasts, audiobooks and notes in one app",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
