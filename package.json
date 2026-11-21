@@ -1,0 +1,25 @@
+{
+  "name": "technolovers-radio",
+  "version": "1.0.0",
+  "description": "Technolovers Radio: ad-free radio stations, podcasts, audiobooks and notes in one HTML file",
+  "scripts": {
+    "test": "node --test --test-force-exit --test-timeout=120000 tests/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esildooor-commits/technolovers-radio.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/esildooor-commits/technolovers-radio/issues"
+  },
+  "homepage": "https://github.com/esildooor-commits/technolovers-radio#readme",
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.8",
+    "jsdom": "^31.0.1"
+  },
+  "private": true
+}

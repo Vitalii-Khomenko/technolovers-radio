@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0a0e1a">
-<!-- Kein Referer senden: SomaFM antwortet auf Anfragen von fremden Seiten (github.io, localhost) mit 403; zudem datensparsamer -->
+<!-- Send no Referer: SomaFM answers requests from other sites (github.io, localhost) with 403; it is also more private -->
 <meta name="referrer" content="no-referrer">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Werbefrei Radio</title>
+<title>Technolovers Radio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -37,73 +37,76 @@
 html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font-body); color-scheme: dark; }
 body { position: relative; overflow-x: hidden; padding-bottom: calc(112px + var(--safe-b)); }
 
-/* ambient background */
-.aura { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: radial-gradient(120% 80% at 50% -10%, var(--bg2), var(--bg) 60%); }
-.aura i { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .5; transition: background 1.6s ease; animation: drift 26s ease-in-out infinite alternate; }
-.aura i:nth-child(1) { width: 60vmax; height: 60vmax; left: -20vmax; top: -22vmax; background: hsl(var(--h) 80% 45%); }
-.aura i:nth-child(2) { width: 50vmax; height: 50vmax; right: -18vmax; top: 18vh; background: hsl(calc(var(--h) + 55) 75% 42%); animation-duration: 34s; animation-delay: -8s; }
-.aura i:nth-child(3) { width: 44vmax; height: 44vmax; left: 10vw; bottom: -24vmax; background: hsl(calc(var(--h) - 45) 70% 38%); animation-duration: 40s; animation-delay: -15s; }
-@keyframes drift { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(6vmax,4vmax,0) scale(1.15); } }
+/* ambient background: static gradients (no blur, no permanent animation: saves GPU and battery) */
+@property --h { syntax: "<number>"; inherits: true; initial-value: 195; }
+:root { transition: --h .6s ease; }     /* the hue fades smoothly when the station changes */
+.aura { position: fixed; inset: 0; z-index: 0; pointer-events: none; background:
+  radial-gradient(60vmax 60vmax at 0% 0%, hsl(var(--h) 80% 45% / .5), transparent 70%),
+  radial-gradient(50vmax 50vmax at 100% 40%, hsl(calc(var(--h) + 55) 75% 42% / .45), transparent 70%),
+  radial-gradient(44vmax 44vmax at 25% 100%, hsl(calc(var(--h) - 45) 70% 38% / .4), transparent 70%),
+  radial-gradient(120% 80% at 50% -10%, var(--bg2), var(--bg) 60%); }
 
 main { position: relative; z-index: 1; width: min(1080px, 100%); margin: 0 auto; padding: 24px 16px 0; }
 
 header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.brand { font: 600 .8rem/1 var(--font-display); letter-spacing: .28em; text-transform: uppercase; color: var(--muted); }
+.brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 .8rem/1 var(--font-display); letter-spacing: .28em; text-transform: uppercase; color: var(--muted); }
 .brand b { color: var(--accent); font-weight: 600; }
-.count { font-size: .8rem; color: var(--muted); }
+.count { flex: none; white-space: nowrap; font-size: .8rem; color: var(--muted); }
 
 /* hero */
 .hero { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 34px 0 26px; }
 .orb-wrap { position: relative; width: 168px; height: 168px; display: grid; place-items: center; }
-.orb { width: 124px; height: 124px; border-radius: 50%; background: radial-gradient(circle at 32% 28%, hsl(calc(var(--h) + 30) 90% 82%), hsl(var(--h) 85% 58%) 45%, hsl(calc(var(--h) - 30) 80% 28%) 100%); box-shadow: 0 0 60px hsl(var(--h) 90% 55% / .55), inset 0 -10px 30px rgba(0,0,0,.35); transition: box-shadow 1.2s, background 1.2s; animation: breathe 7s ease-in-out infinite; }
-.orb-wrap::before, .orb-wrap::after { content: ""; position: absolute; inset: 14px; border-radius: 50%; border: 1px solid hsl(var(--h) 90% 70% / .35); opacity: 0; }
-body.playing .orb-wrap::before { animation: ring 4.2s ease-out infinite; }
-body.playing .orb-wrap::after { animation: ring 4.2s ease-out 2.1s infinite; }
-body.playing .orb { animation-duration: 3.6s; }
+.orb { width: 124px; height: 124px; border-radius: 50%; background: radial-gradient(circle at 32% 28%, hsl(calc(var(--h) + 30) 90% 82%), hsl(var(--h) 85% 58%) 45%, hsl(calc(var(--h) - 30) 80% 28%) 100%); box-shadow: 0 0 60px hsl(var(--h) 90% 55% / .55), inset 0 -10px 30px rgba(0,0,0,.35); transition: box-shadow 1.2s; }
+/* Motion only while playing, and only in a few even steps (about 6-10 frames/s instead of 60): saves battery */
+body.playing .orb { animation: breathe 6s steps(36) infinite; }
 @keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
-@keyframes ring { 0% { transform: scale(.75); opacity: .8; } 100% { transform: scale(1.35); opacity: 0; } }
 
-.now-label { font-size: .72rem; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); }
-.now-name { margin: 0; font: 300 clamp(1.7rem, 6vw, 2.8rem)/1.1 var(--font-display); letter-spacing: -.01em; text-wrap: balance; }
-.now-sub { margin: 0; color: var(--muted); font-size: .95rem; min-height: 1.3em; }
+.hero > * { max-width: 100%; }
+.now-label { font-size: .72rem; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); overflow-wrap: anywhere; }
+.now-name { margin: 0; padding: 0 4px; font: 300 clamp(1.7rem, 6vw, 2.8rem)/1.1 var(--font-display); letter-spacing: -.01em; text-wrap: balance; overflow-wrap: anywhere; }
+.now-sub { margin: 0; color: var(--muted); font-size: .95rem; min-height: 1.3em; max-width: min(100%, 36ch); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .now-sub.err { color: #ff9b8a; }
 
 .bars { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 28px; margin-top: 4px; }
 .bars span { width: 3px; height: 100%; border-radius: 2px; background: var(--accent); transform: scaleY(.12); transform-origin: bottom; opacity: .75; transition: transform .4s; }
-body.playing .bars span { animation: eq 1.1s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -.13s); }
+body.playing .bars span { animation: eq 1.2s steps(6) infinite alternate; }
+body.playing .bars span:nth-child(4n+2) { animation-delay: -.3s; }
+body.playing .bars span:nth-child(4n+3) { animation-delay: -.6s; }
+body.playing .bars span:nth-child(4n+4) { animation-delay: -.9s; }       /* phases on the step grid (0.1 s): few redraws */
+/* Pause animations when nobody sees them: .bg = tab in the background (everything), .still = header scrolled away (orb and bars only) */
+body.still .orb, body.still .bars span, body.bg .orb, body.bg .bars span, body.bg .eqmini i { animation-play-state: paused !important; }
 @keyframes eq { 0% { transform: scaleY(.15); } 50% { transform: scaleY(.9); } 100% { transform: scaleY(.3); } }
 
 /* controls bar */
 .tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
-.search { flex: 1 1 200px; display: flex; align-items: center; gap: 8px; background: var(--glass); border: 1px solid var(--line); border-radius: 999px; padding: 0 14px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.search { flex: 1 1 200px; display: flex; align-items: center; gap: 8px; background: var(--glass); border: 1px solid var(--line); border-radius: 999px; padding: 0 14px; }
 .search svg { flex: none; opacity: .6; }
 .search input { all: unset; width: 100%; padding: 12px 0; font-size: .95rem; color: var(--ink); }
 .search input::placeholder { color: var(--muted); }
 .search:focus-within { border-color: var(--accent); }
-.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; margin-bottom: 4px; }
-.chips::-webkit-scrollbar { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 0 12px; margin-bottom: 4px; }   /* wraps onto several lines in a narrow window */
 .chip { flex: none; cursor: pointer; border: 1px solid var(--line); background: var(--glass); color: var(--muted); font: 500 .85rem var(--font-body); padding: 9px 15px; border-radius: 999px; transition: .2s; }
 .chip:hover { color: var(--ink); }
 .chip[aria-pressed="true"] { color: #07101c; background: var(--accent); border-color: transparent; font-weight: 700; }
 
 /* grid */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px; padding-bottom: 8px; }
-.card-wrap { position: relative; display: flex; }
-.card { width: 100%; position: relative; text-align: left; cursor: pointer; border: 1px solid var(--line); background: var(--glass); color: var(--ink); border-radius: 20px; padding: 16px 14px 14px; min-height: 118px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transition: transform .2s, background .25s, border-color .25s, box-shadow .3s; font-family: inherit; overflow: hidden; }
+.card-wrap { position: relative; display: flex; min-width: 0; }
+.card { width: 100%; min-width: 0; position: relative; text-align: left; cursor: pointer; border: 1px solid var(--line); background: var(--glass); color: var(--ink); border-radius: 20px; padding: 16px 14px 14px; min-height: 118px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; transition: transform .2s, background .25s, border-color .25s, box-shadow .3s; font-family: inherit; overflow: hidden; }
 .card::before { content: ""; position: absolute; inset: 0; background: radial-gradient(90% 90% at 0% 0%, hsl(var(--ch) 85% 60% / .22), transparent 65%); pointer-events: none; }
 .card:hover { transform: translateY(-3px); background: var(--glass-hi); }
 .card:focus-visible, .chip:focus-visible, .btn:focus-visible, .fav:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .card.active { border-color: hsl(var(--ch) 90% 70% / .8); box-shadow: 0 0 0 1px hsl(var(--ch) 90% 70% / .5), 0 10px 40px hsl(var(--ch) 90% 55% / .3); background: var(--glass-hi); }
-.card .tag { position: relative; padding-right: 30px; font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: hsl(var(--ch) 85% 75%); }
-.card .nm { position: relative; font: 600 1.05rem/1.2 var(--font-display); letter-spacing: -.005em; }
-.card .bpm { position: relative; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.card .tag { position: relative; margin-right: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: hsl(var(--ch) 85% 75%); }
+.card .nm { position: relative; font: 600 1.05rem/1.2 var(--font-display); letter-spacing: -.005em; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card .bpm { position: relative; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .fav { position: absolute; top: 8px; right: 8px; z-index: 2; border: 0; background: transparent; color: var(--muted); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; transition: .2s; }
 .fav:hover { color: var(--ink); background: var(--glass); }
 .fav[aria-pressed="true"] { color: #ff7aa8; }
 .fav[aria-pressed="true"] svg { fill: currentColor; }
 .eqmini { position: absolute; left: 14px; bottom: 14px; display: none; gap: 2px; align-items: flex-end; height: 14px; }
-.eqmini i { width: 3px; height: 100%; background: hsl(var(--ch) 90% 75%); border-radius: 1px; transform-origin: bottom; animation: eq .9s ease-in-out infinite alternate; }
-.eqmini i:nth-child(2) { animation-delay: -.3s; } .eqmini i:nth-child(3) { animation-delay: -.6s; }
+.eqmini i { width: 3px; height: 100%; background: hsl(var(--ch) 90% 75%); border-radius: 1px; transform-origin: bottom; animation: eq .9s steps(5) infinite alternate; }
+.eqmini i:nth-child(2) { animation-delay: -.18s; } .eqmini i:nth-child(3) { animation-delay: -.36s; }
 body.playing .card.active .eqmini { display: flex; }
 body.playing .card.active .bpm { margin-left: 24px; }
 .empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 40px 0; }
@@ -129,7 +132,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px;
 input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 0; }
 .sleep { font: 500 .78rem var(--font-body); width: auto; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); height: 34px; color: var(--muted); }
 .sleep.on { color: var(--accent); border-color: var(--accent); }
-/* Einschlaf-Timer: Bedienfeld über dem Dock */
+/* Sleep timer: panel above the dock */
 .sleeppanel { position: fixed; right: 14px; bottom: calc(96px + var(--safe-b)); z-index: 20; width: min(320px, calc(100% - 28px)); padding: 14px; border-radius: 20px; background: rgba(14,19,40,.96); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.5); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
 .sp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .sp-title { font: 600 .9rem var(--font-display); }
@@ -146,7 +149,7 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 
 
 /* mode switch (Radio / Podcasts) */
 [hidden] { display: none !important; }
-.modes { display: inline-flex; gap: 4px; margin-top: 18px; padding: 4px; background: var(--glass); border: 1px solid var(--line); border-radius: 999px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.modes { display: inline-flex; gap: 4px; margin-top: 18px; padding: 4px; background: var(--glass); border: 1px solid var(--line); border-radius: 999px; }
 .modes button { border: 0; cursor: pointer; background: transparent; color: var(--muted); font: 600 .85rem var(--font-display); padding: 9px 20px; border-radius: 999px; transition: .2s; }
 .modes button:hover { color: var(--ink); }
 .modes button[aria-pressed="true"] { background: var(--accent); color: #07101c; }
@@ -156,7 +159,7 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 
 .pod-top { padding-top: 22px; }
 .pod-sec { margin: 20px 0 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 600 .72rem var(--font-display); letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
 .pod-list { display: grid; gap: 10px; }
-.pod-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--line); background: var(--glass); border-radius: 18px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.pod-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; padding: 10px; border: 1px solid var(--line); background: var(--glass); border-radius: 18px; }
 .pod-row.cur { border-color: hsl(var(--h) 90% 70% / .7); background: var(--glass-hi); }
 .pod-art { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; background: var(--bg2); }
 .pod-tx { min-width: 0; }
@@ -207,18 +210,19 @@ select.pbtn { appearance: none; -webkit-appearance: none; }
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + var(--safe-b)); z-index: 20; max-width: min(520px, calc(100% - 28px)); padding: 12px 16px; border-radius: 16px; background: rgba(14,19,40,.94); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0,0,0,.5); font-size: .85rem; line-height: 1.4; }
 .toast a { color: var(--accent); }
 
-/* dock: Podcast-Leiste (Fortschritt, Sprünge, Tempo) */
-.seekrow { grid-column: 1 / -1; display: none; align-items: center; gap: 8px; }
+/* dock: podcast bar (progress, jumps, speed) */
+.seekrow { grid-column: 1 / -1; display: none; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
 body.pod .seekrow { display: flex; }
-.seekrow input[type=range] { flex: 1; width: auto; min-width: 70px; max-width: none; }
+.seekrow input[type=range] { flex: 1 1 90px; width: auto; min-width: 70px; max-width: none; }
 .seekrow .tm { font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 38px; text-align: center; }
 .seekrow .sleep { flex: none; padding: 0 9px; }
+.skbtns { display: flex; gap: 8px; margin-left: auto; }          /* stays together, moves to the next line as a group when space is tight */
 
-/* Notizen: Lesemodus */
+/* Notes: reading mode */
 .modes { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
 .modes::-webkit-scrollbar { display: none; }
 .modes button { white-space: nowrap; }
-.rbar { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: 4px; margin: 6px -6px 12px; padding: 8px 8px; border-radius: 18px; background: rgba(10,14,26,.82); border: 1px solid var(--line); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.rbar { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: 4px; margin: 6px -6px 12px; padding: 8px 8px; border-radius: 18px; background: rgba(10,14,26,.92); border: 1px solid var(--line); }
 .rbar .btn { flex: none; width: 40px; height: 40px; font: 600 .82rem var(--font-body); }
 .rbar .rt { flex: 1; min-width: 0; padding: 0 6px; }
 .rbar .rt .t { font: 600 .95rem/1.2 var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -227,7 +231,7 @@ body.pod .seekrow { display: flex; }
 .toc a { color: var(--ink); text-decoration: none; padding: 5px 6px; border-radius: 8px; font-size: .88rem; overflow-wrap: anywhere; }
 .toc a:hover { background: var(--glass-hi); }
 .toc a.l2 { padding-left: 18px; } .toc a.l3 { padding-left: 30px; color: var(--muted); } .toc a.l4 { padding-left: 42px; color: var(--muted); }
-.paper { max-width: 820px; margin: 0 auto; padding: 20px 20px 26px; border: 1px solid var(--line); border-radius: 22px; background: rgba(12,17,34,.62); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.paper { max-width: 820px; margin: 0 auto; padding: 20px 20px 26px; border: 1px solid var(--line); border-radius: 22px; background: rgba(12,17,34,.8); }
 .tree { display: grid; gap: 2px; margin-top: 4px; }
 .tree details { margin-left: 0; }
 .tree summary { cursor: pointer; padding: 8px 6px; border-radius: 10px; font-weight: 600; font-size: .92rem; }
@@ -284,7 +288,10 @@ body.pod .seekrow { display: flex; }
   .paper { padding: 16px 14px 20px; border-radius: 18px; }
 }
 @media (max-width: 560px) {
-  .dock-in { grid-template-columns: auto 1fr; gap: 10px; }
+  .dock-in { grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
+  .dock-info .t, .dock-info .s { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .now-name { min-height: 2.2em; display: grid; align-content: center; }   /* reserve two lines: the grid below does not jump when the station changes */
+  .brand { letter-spacing: .18em; }
   .side { grid-column: 1 / -1; justify-content: space-between; order: 2; }
   .seekrow { order: 1; }
   .vol { flex: 1; } input[type=range] { width: 100%; max-width: 220px; }
@@ -293,16 +300,17 @@ body.pod .seekrow { display: flex; }
   .toast, .sleeppanel { bottom: calc(150px + var(--safe-b)); }
   body.pod .toast, body.pod .sleeppanel { bottom: calc(200px + var(--safe-b)); }
   .sleeppanel { left: 14px; width: auto; }
-  .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .pod-row { grid-template-columns: 56px 1fr; }
   .trk { grid-template-columns: 30px 1fr; }
   .pod-act { grid-column: 1 / -1; justify-content: flex-end; flex-wrap: wrap; }
 }
+@media (max-width: 360px) { .brand { letter-spacing: .1em; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="aura" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="aura" aria-hidden="true"></div>
 
 <main>
   <header class="top">
@@ -310,34 +318,28 @@ body.pod .seekrow { display: flex; }
     <div class="count" id="count"></div>
   </header>
 
-  <nav class="modes" id="modes" aria-label="Bereich">
+  <nav class="modes" id="modes" aria-label="Section">
     <button data-mode="radio" aria-pressed="true">Radio</button>
     <button data-mode="pod" aria-pressed="false">Podcasts</button>
-    <button data-mode="book" aria-pressed="false">Bücher</button>
-    <button data-mode="note" aria-pressed="false">Notizen</button>
+    <button data-mode="book" aria-pressed="false">Books</button>
+    <button data-mode="note" aria-pressed="false">Notes</button>
   </nav>
 
   <div id="radioView">
   <section class="hero" aria-live="polite">
     <div class="orb-wrap"><div class="orb"></div></div>
-    <div class="now-label" id="nowLabel">Bereit</div>
-    <h1 class="now-name" id="nowName">Wähle einen Sender</h1>
-    <p class="now-sub" id="nowSub">Tippe auf eine Karte und es läuft sofort.</p>
+    <div class="now-label" id="nowLabel">Ready</div>
+    <h1 class="now-name" id="nowName">Pick a station</h1>
+    <p class="now-sub" id="nowSub">Tap a card and it plays right away.</p>
     <div class="bars" id="bars" aria-hidden="true"></div>
   </section>
 
-  <div class="tools">
-    <label class="search">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="search" placeholder="Sender suchen" autocomplete="off" aria-label="Sender suchen">
-    </label>
-  </div>
-  <nav class="chips" id="chips" aria-label="Kategorien"></nav>
+  <nav class="chips" id="chips" aria-label="Categories"></nav>
 
-  <section class="grid" id="grid" aria-label="Sender"></section>
+  <section class="grid" id="grid" aria-label="Stations"></section>
 
   <footer class="note">
-    Die Streams kommen direkt von den Sendern (SomaFM, NTS) – ohne Werbung. Die App speichert Favoriten, Lautstärke und den zuletzt gehörten Sender nur in diesem Browser.
+    The streams come straight from the stations, with no ads. The app stores your favourites, the volume and the last station you listened to in this browser only.
   </footer>
   </div>
 
@@ -346,14 +348,14 @@ body.pod .seekrow { display: flex; }
       <div class="tools">
         <label class="search">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <input id="pq" type="search" placeholder="Podcasts &amp; Folgen suchen" autocomplete="off" aria-label="Podcasts und Folgen suchen">
+          <input id="pq" type="search" placeholder="Search podcasts &amp; episodes" autocomplete="off" aria-label="Search podcasts and episodes">
         </label>
       </div>
-      <nav class="chips" id="podTabs" aria-label="Podcast-Bereiche"></nav>
+      <nav class="chips" id="podTabs" aria-label="Podcast sections"></nav>
     </div>
     <div id="podBody"></div>
     <footer class="note">
-      Suche und Folgenlisten kommen von der iTunes Search API, die Audiodateien direkt vom jeweiligen Anbieter. Heruntergeladene Folgen, Abos, Wiedergabeliste und Hörfortschritt bleiben nur in diesem Browser gespeichert. Erlaubt ein Anbieter keinen direkten Download, lässt sich die Datei stattdessen im Browser öffnen.
+      Search and episode lists come from the iTunes Search API, and the audio files come straight from each publisher. Downloaded episodes, subscriptions, the queue and listening progress stay in this browser only. If a publisher does not allow a direct download, you can open the file in the browser instead.
     </footer>
   </div>
 
@@ -362,7 +364,7 @@ body.pod .seekrow { display: flex; }
     <input class="vh" type="file" id="pickDir" webkitdirectory multiple tabindex="-1" aria-hidden="true">
     <input class="vh" type="file" id="pickFiles" accept="audio/*,.m4b" multiple tabindex="-1" aria-hidden="true">
     <footer class="note">
-      Hörbücher werden als Kopie im Speicher dieses Browsers abgelegt, dort bleiben Reihenfolge, Hörfortschritt und „gehört“-Markierungen erhalten. Das braucht so viel Platz wie die Dateien selbst. Löschst du die Website-Daten, sind die Bücher weg; die Originale auf dem Gerät bleiben unberührt.
+      Audiobooks are stored as a copy in this browser's storage, which keeps the order, the listening progress and the "heard" marks. That takes as much space as the files themselves. If you clear the site data, the books are gone; the originals on your device are untouched.
     </footer>
   </div>
 
@@ -371,7 +373,7 @@ body.pod .seekrow { display: flex; }
     <input class="vh" type="file" id="pickMd" webkitdirectory multiple tabindex="-1" aria-hidden="true">
     <input class="vh" type="file" id="pickMdFiles" accept=".md,.markdown,.png,.jpg,.jpeg,.gif,.webp,.svg,.avif,.bmp,text/markdown,image/*" multiple tabindex="-1" aria-hidden="true">
     <footer class="note">
-      Notizen sind nur zum Lesen da. Die Dateien werden als Kopie im Speicher dieses Browsers abgelegt (so viel Platz wie die Dateien selbst); Änderungen an den Originalen übernimmst du mit „Aktualisieren“. Verborgene Ordner wie .obsidian werden übersprungen. Formeln und Diagramme (Mermaid) werden als Text angezeigt.
+      Notes are read-only. The files are stored as a copy in this browser's storage (as much space as the files themselves); you pick up changes to the originals with "Refresh". Hidden folders such as .obsidian are skipped. Formulas and diagrams (Mermaid) are shown as text.
     </footer>
   </div>
 </main>
@@ -379,45 +381,47 @@ body.pod .seekrow { display: flex; }
 <div class="dock">
   <div class="dock-in">
     <div class="transport">
-      <button class="btn" id="prev" aria-label="Vorheriger Sender"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9.5 12z"/></svg></button>
-      <button class="btn play" id="play" aria-label="Abspielen"><svg id="playIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
-      <button class="btn" id="next" aria-label="Nächster Sender"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l10.5-7z"/></svg></button>
+      <button class="btn" id="prev" aria-label="Previous station"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9.5 12z"/></svg></button>
+      <button class="btn play" id="play" aria-label="Play"><svg id="playIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="btn" id="next" aria-label="Next station"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l10.5-7z"/></svg></button>
     </div>
     <div class="dock-info">
-      <div class="t" id="dockT">Kein Sender gewählt</div>
-      <div class="s" id="dockS">Werbefrei Radio</div>
+      <div class="t" id="dockT">No station selected</div>
+      <div class="s" id="dockS">Technolovers Radio</div>
     </div>
     <div class="side">
       <div class="vol">
-        <button class="btn" id="mute" aria-label="Stumm schalten" style="width:36px;height:36px"><svg id="volIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
-        <input type="range" id="vol" min="0" max="100" value="80" aria-label="Lautstärke">
+        <button class="btn" id="mute" aria-label="Mute" style="width:36px;height:36px"><svg id="volIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+        <input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume">
       </div>
-      <button class="btn sleep" id="sleep" aria-label="Einschlaf-Timer" aria-haspopup="dialog" aria-expanded="false" aria-controls="sleepPanel">Timer aus</button>
+      <button class="btn sleep" id="sleep" aria-label="Sleep timer" aria-haspopup="dialog" aria-expanded="false" aria-controls="sleepPanel">Timer off</button>
     </div>
     <div class="seekrow" id="seekrow">
       <span class="tm" id="tCur">0:00</span>
       <input type="range" id="seek" min="0" max="0" step="1" value="0" aria-label="Position">
       <span class="tm" id="tDur">0:00</span>
-      <button class="btn sleep" id="back15" aria-label="15 Sekunden zurück">−15</button>
-      <button class="btn sleep" id="fwd30" aria-label="30 Sekunden vor">+30</button>
-      <button class="btn sleep" id="rate" aria-label="Wiedergabetempo">1×</button>
+      <div class="skbtns">
+        <button class="btn sleep" id="back15" aria-label="Back 15 seconds">−15</button>
+        <button class="btn sleep" id="fwd30" aria-label="Forward 30 seconds">+30</button>
+        <button class="btn sleep" id="rate" aria-label="Playback speed">1×</button>
+      </div>
     </div>
   </div>
 </div>
-<div class="sleeppanel" id="sleepPanel" role="dialog" aria-label="Einschlaf-Timer" hidden>
-  <div class="sp-head"><span class="sp-title">Einschlaf-Timer</span><span class="sp-left" id="spLeft" aria-live="off">Aus</span></div>
-  <div class="sp-lbl">Starten in Minuten</div>
+<div class="sleeppanel" id="sleepPanel" role="dialog" aria-label="Sleep timer" hidden>
+  <div class="sp-head"><span class="sp-title">Sleep timer</span><span class="sp-left" id="spLeft" aria-live="off">Off</span></div>
+  <div class="sp-lbl">Start in minutes</div>
   <div class="sp-grid">
     <button class="spb" data-min="5">5</button><button class="spb" data-min="15">15</button><button class="spb" data-min="30">30</button>
     <button class="spb" data-min="45">45</button><button class="spb" data-min="60">60</button><button class="spb" data-min="90">90</button>
   </div>
-  <div class="sp-lbl">Zeit ändern</div>
+  <div class="sp-lbl">Change time</div>
   <div class="sp-adj">
-    <button class="spb" data-adj="-15" aria-label="15 Minuten weniger">−15</button><button class="spb" data-adj="-5" aria-label="5 Minuten weniger">−5</button>
-    <button class="spb" data-adj="5" aria-label="5 Minuten mehr">+5</button><button class="spb" data-adj="15" aria-label="15 Minuten mehr">+15</button>
+    <button class="spb" data-adj="-15" aria-label="15 minutes less">−15</button><button class="spb" data-adj="-5" aria-label="5 minutes less">−5</button>
+    <button class="spb" data-adj="5" aria-label="5 minutes more">+5</button><button class="spb" data-adj="15" aria-label="15 minutes more">+15</button>
   </div>
-  <button class="spb off" id="spOff" disabled>Timer aus</button>
-  <div class="sp-hint">Die Lautstärke sinkt in den letzten 20 Sekunden langsam, dann wird pausiert.</div>
+  <button class="spb off" id="spOff" disabled>Timer off</button>
+  <div class="sp-hint">The volume fades out over the last 20 seconds, then playback pauses.</div>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 
@@ -425,69 +429,69 @@ body.pod .seekrow { display: flex; }
 (function () {
   "use strict";
 
-  /* ---------- Stationen ---------- */
-  // cat: Kategorie, h: Farbton, bpm: Genre-Zeile auf der Karte, tag: Betreiber, urls: Stream-Adressen (die erste zuerst)
+  /* ---------- Stations ---------- */
+  // cat: category, h: hue, bpm: genre line on the card, tag: operator, urls: stream addresses (the first one is tried first)
   var CATS = [
-    { id: "all",   name: "Alle" },
-    { id: "fav",   name: "Favoriten" },
+    { id: "all",   name: "All" },
+    { id: "fav",   name: "Favourites" },
     { id: "chill", name: "Chill & Ambient", h: 190 },
     { id: "house", name: "House & Trance",  h: 265 },
     { id: "bass",  name: "Bass & Glitch",   h: 12 },
     { id: "mix",   name: "Eclectic",        h: 330 },
-    { id: "world", name: "Weltweit",        h: 150 }
+    { id: "world", name: "Worldwide",       h: 150 }
   ];
   var HUE = {}; CATS.forEach(function (c) { if (c.h != null) HUE[c.id] = c.h; });
 
-  // Unabhängige Sender ohne Werbung (spenden- bzw. hörerfinanziert), direkt von deren Servern
+  // Independent stations without ads (donation or listener funded), played straight from their own servers
   var S = [
     ext("Groove Salad", "chill", "Downtempo & Chill", "soma-groovesalad", "SomaFM", soma("groovesalad")),
     ext("Deep Space One", "chill", "Deep Ambient", "soma-deepspaceone", "SomaFM", soma("deepspaceone")),
     ext("Drone Zone", "chill", "Ambient", "soma-dronezone", "SomaFM", soma("dronezone")),
-    ext("Lush", "chill", "Sinnlich & Vocal", "soma-lush", "SomaFM", soma("lush")),
+    ext("Lush", "chill", "Sensual & Vocal", "soma-lush", "SomaFM", soma("lush")),
     ext("Secret Agent", "chill", "Lounge & Downtempo", "soma-secretagent", "SomaFM", soma("secretagent")),
-    ext("Space Station Soma", "chill", "Spacige Electronica", "soma-spacestation", "SomaFM", soma("spacestation")),
+    ext("Space Station Soma", "chill", "Spacey Electronica", "soma-spacestation", "SomaFM", soma("spacestation")),
     ext("Beat Blender", "house", "Deep House & Downtempo", "soma-beatblender", "SomaFM", soma("beatblender")),
     ext("The Trip", "house", "Progressive House & Trance", "soma-thetrip", "SomaFM", soma("thetrip")),
     ext("Cliqhop", "bass", "Glitch & IDM", "soma-cliqhop", "SomaFM", soma("cliqhop")),
     ext("Dub Step Beyond", "bass", "Dubstep & Dub", "soma-dubstep", "SomaFM", soma("dubstep")),
-    ext("NTS 1", "mix", "Eclectic, viel Electronic", "nts-1", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream"]),
-    ext("NTS 2", "mix", "Eclectic, viel Electronic", "nts-2", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream2"]),
-    // Weltweit: öffentlich-rechtliche bzw. hörerfinanzierte Sender ohne Werbung
-    ext("FIP", "world", "Frankreich · Eclectic", "fip", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fip-midfi.mp3"]),
-    ext("FIP Electro", "world", "Frankreich · Electro", "fip-electro", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fipelectro-midfi.mp3"]),
-    ext("FIP Groove", "world", "Frankreich · Groove & Funk", "fip-groove", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fipgroove-midfi.mp3"]),
-    ext("FIP Jazz", "world", "Frankreich · Jazz", "fip-jazz", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fipjazz-midfi.mp3"]),
-    ext("FIP World", "world", "Frankreich · Weltmusik", "fip-world", "FIP · Frankreich", ["https://icecast.radiofrance.fr/fipworld-midfi.mp3"]),
-    ext("DLF Nova", "world", "Deutschland · Pop, Indie & Electronic", "dlf-nova", "DLF Nova · Deutschland", ["https://st03.sslstream.dlf.de/dlf/03/128/mp3/stream.mp3"]),
+    ext("NTS 1", "mix", "Eclectic, lots of Electronic", "nts-1", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream"]),
+    ext("NTS 2", "mix", "Eclectic, lots of Electronic", "nts-2", "NTS Radio", ["https://stream-relay-geo.ntslive.net/stream2"]),
+    // Worldwide: public or listener funded stations without ads
+    ext("FIP", "world", "France · Eclectic", "fip", "FIP · France", ["https://icecast.radiofrance.fr/fip-midfi.mp3"]),
+    ext("FIP Electro", "world", "France · Electro", "fip-electro", "FIP · France", ["https://icecast.radiofrance.fr/fipelectro-midfi.mp3"]),
+    ext("FIP Groove", "world", "France · Groove & Funk", "fip-groove", "FIP · France", ["https://icecast.radiofrance.fr/fipgroove-midfi.mp3"]),
+    ext("FIP Jazz", "world", "France · Jazz", "fip-jazz", "FIP · France", ["https://icecast.radiofrance.fr/fipjazz-midfi.mp3"]),
+    ext("FIP World", "world", "France · World Music", "fip-world", "FIP · France", ["https://icecast.radiofrance.fr/fipworld-midfi.mp3"]),
+    ext("DLF Nova", "world", "Germany · Pop, Indie & Electronic", "dlf-nova", "DLF Nova · Germany", ["https://st03.sslstream.dlf.de/dlf/03/128/mp3/stream.mp3"]),
     ext("KEXP", "world", "USA · Indie & Eclectic", "kexp", "KEXP · USA", ["https://kexp-mp3-128.streamguys1.com/kexp128.mp3"]),
     ext("Radio Paradise", "world", "USA · Eclectic Rock & Mix", "radioparadise", "Radio Paradise · USA", ["https://stream.radioparadise.com/mp3-128"]),
     ext("dublab", "world", "USA · Electronic & Experimental", "dublab", "dublab · USA", ["https://dublab.out.airtime.pro/dublab_a"]),
-    ext("Radio Raheem", "world", "Italien · Eclectic & Underground", "raheem", "Radio Raheem · Italien", ["https://radioraheem.out.airtime.pro/radioraheem_a"]),
-    ext("Kiosk Radio", "world", "Belgien · Electronic & Eclectic", "kiosk", "Kiosk Radio · Belgien", ["https://kioskradiobxl.out.airtime.pro/kioskradiobxl_b"]),
-    ext("Triple R", "world", "Australien · Indie & Eclectic", "triple-r", "Triple R · Australien", ["https://realtime.rrr.org.au/p1h"]),
-    ext("Intergalactic Disco Fetish", "world", "Niederlande · Disco", "ig-disco", "Intergalactic FM · Niederlande", ["https://radio.intergalactic.fm/2"]),
-    ext("Intergalactic Dream Machine", "world", "Niederlande · Electronic", "ig-dream", "Intergalactic FM · Niederlande", ["https://radio.intergalactic.fm/3"]),
-    ext("Intergalactic Cybernetic", "world", "Niederlande · Electronic", "ig-cyber", "Intergalactic FM · Niederlande", ["https://radio.intergalactic.fm/1"]),
-    ext("NRK P3", "world", "Norwegen · Pop & Hits", "nrk-p3", "NRK · Norwegen", ["https://lyd.nrk.no/nrk_radio_p3_mp3_h"]),
-    ext("NRK mP3", "world", "Norwegen · Musik-Mix", "nrk-mp3", "NRK · Norwegen", ["https://lyd.nrk.no/nrk_radio_mp3_mp3_h"]),
-    ext("NRK Jazz", "world", "Norwegen · Jazz", "nrk-jazz", "NRK · Norwegen", ["https://lyd.nrk.no/nrk_radio_jazz_mp3_h"]),
+    ext("Radio Raheem", "world", "Italy · Eclectic & Underground", "raheem", "Radio Raheem · Italy", ["https://radioraheem.out.airtime.pro/radioraheem_a"]),
+    ext("Kiosk Radio", "world", "Belgium · Electronic & Eclectic", "kiosk", "Kiosk Radio · Belgium", ["https://kioskradiobxl.out.airtime.pro/kioskradiobxl_b"]),
+    ext("Triple R", "world", "Australia · Indie & Eclectic", "triple-r", "Triple R · Australia", ["https://realtime.rrr.org.au/p1h"]),
+    ext("Intergalactic Disco Fetish", "world", "Netherlands · Disco", "ig-disco", "Intergalactic FM · Netherlands", ["https://radio.intergalactic.fm/2"]),
+    ext("Intergalactic Dream Machine", "world", "Netherlands · Electronic", "ig-dream", "Intergalactic FM · Netherlands", ["https://radio.intergalactic.fm/3"]),
+    ext("Intergalactic Cybernetic", "world", "Netherlands · Electronic", "ig-cyber", "Intergalactic FM · Netherlands", ["https://radio.intergalactic.fm/1"]),
+    ext("NRK P3", "world", "Norway · Pop & Hits", "nrk-p3", "NRK · Norway", ["https://lyd.nrk.no/nrk_radio_p3_mp3_h"]),
+    ext("NRK mP3", "world", "Norway · Music Mix", "nrk-mp3", "NRK · Norway", ["https://lyd.nrk.no/nrk_radio_mp3_mp3_h"]),
+    ext("NRK Jazz", "world", "Norway · Jazz", "nrk-jazz", "NRK · Norway", ["https://lyd.nrk.no/nrk_radio_jazz_mp3_h"]),
     ext("LISTEN.moe J-Pop", "world", "Japan · J-Pop & Anime", "listenmoe-jpop", "LISTEN.moe · Japan", ["https://listen.moe/fallback"]),
-    ext("LISTEN.moe K-Pop", "world", "Südkorea · K-Pop", "listenmoe-kpop", "LISTEN.moe · Südkorea", ["https://listen.moe/kpop/fallback"])
+    ext("LISTEN.moe K-Pop", "world", "South Korea · K-Pop", "listenmoe-kpop", "LISTEN.moe · South Korea", ["https://listen.moe/kpop/fallback"])
   ];
   function ext(name, cat, genre, id, tag, urls) { return { id: id, name: name, cat: cat, bpm: genre, tag: tag, urls: urls, brand: tag }; }
   function soma(slug) { return ["https://ice1.somafm.com/" + slug + "-128-mp3", "https://ice2.somafm.com/" + slug + "-128-mp3"]; }
   function fullName(s) { return s.name.indexOf(s.brand.split(" ")[0]) === 0 ? s.name : s.brand + " " + s.name; }
   function urlsFor(s) { return s.urls; }
 
-  /* ---------- Zustand ---------- */
+  /* ---------- State ---------- */
   var store = {
     get: function (k, d) { try { var v = localStorage.getItem("tl_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set: function (k, v) { try { localStorage.setItem("tl_" + k, JSON.stringify(v)); } catch (e) {} }
   };
   var favs = cleanFavs(store.get("favs", []));
-  function cleanFavs(f) { return (Array.isArray(f) ? f : []).filter(function (id) { return byId(id); }); }   // Favoriten gestrichener Sender verwerfen
-  var good = store.get("good", {});      // merkt sich je Sender die funktionierende Adresse
-  var current = null, filter = "all", query = "", tryIdx = 0, wantPlay = false, failedAll = false;
+  function cleanFavs(f) { return (Array.isArray(f) ? f : []).filter(function (id) { return byId(id); }); }   // drop favourites of stations that were removed
+  var good = store.get("good", {});      // remembers the working address per station
+  var current = null, filter = "all", tryIdx = 0, wantPlay = false, failedAll = false;
 
   var audio = new Audio();
   audio.preload = "none";
@@ -496,7 +500,7 @@ body.pod .seekrow { display: flex; }
   var $ = function (id) { return document.getElementById(id); };
   var grid = $("grid"), chips = $("chips");
 
-  /* ---------- Rendern ---------- */
+  /* ---------- Rendering ---------- */
   var heartSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-8-4.9-9.4-10C1.7 7 3.8 4.5 6.7 4.5c1.9 0 3.600 1 5.300 3 1.700-2 3.400-3 5.300-3 2.900 0 5 2.500 4.100 6-1.400 5.100-9.400 10-9.400 10z"/></svg>';
 
   function renderChips() {
@@ -507,35 +511,32 @@ body.pod .seekrow { display: flex; }
   }
 
   function visible() {
-    var q = query.trim().toLowerCase();
     return S.filter(function (s) {
       if (filter === "fav" && favs.indexOf(s.id) < 0) return false;
       if (filter !== "all" && filter !== "fav" && s.cat !== filter) return false;
-      if (q && (s.name + " " + s.tag + " " + s.bpm).toLowerCase().indexOf(q) < 0) return false;
       return true;
     });
   }
 
   function renderGrid() {
     var list = visible();
-    if (view === "radio") $("count").textContent = list.length + " von " + S.length + " Sendern";
+    if (view === "radio") $("count").textContent = list.length + " of " + S.length + " stations";
     if (!list.length) {
-      grid.innerHTML = '<div class="empty">' + (filter === "fav" ? "Noch keine Favoriten. Tippe auf das Herz einer Karte." : "Kein Sender gefunden.") + "</div>";
+      grid.innerHTML = '<div class="empty">' + (filter === "fav" ? "No favourites yet. Tap the heart on a card." : "No stations found.") + "</div>";
       return;
     }
     grid.innerHTML = list.map(function (s) {
       var isFav = favs.indexOf(s.id) >= 0;
       return '<div class="card-wrap">' +
-        '<button class="card' + (current && current.id === s.id ? " active" : "") + '" data-id="' + s.id + '" style="--ch:' + HUE[s.cat] + '" aria-label="' + s.name + ' abspielen">' +
-          '<span class="tag">' + s.tag + '</span>' +
+        '<button class="card' + (current && current.id === s.id ? " active" : "") + '" data-id="' + s.id + '" style="--ch:' + HUE[s.cat] + '" aria-label="Play ' + s.name + '">' +
+          '<span class="tag">' + s.tag.split(" · ")[0] + '</span>' +
           '<span><span class="nm">' + s.name + '</span><br><span class="bpm">' + s.bpm + '</span></span>' +
           '<span class="eqmini"><i></i><i></i><i></i></span>' +
         '</button>' +
-        '<button class="fav" data-fav="' + s.id + '" aria-pressed="' + isFav + '" aria-label="' + (isFav ? "Favorit entfernen" : "Als Favorit merken") + '">' + heartSvg + '</button>' +
+        '<button class="fav" data-fav="' + s.id + '" aria-pressed="' + isFav + '" aria-label="' + (isFav ? "Remove favourite" : "Add to favourites") + '">' + heartSvg + '</button>' +
       '</div>';
     }).join("");
   }
-  // Karten-Wrapper nimmt die volle Zelle ein
   grid.addEventListener("click", function (e) {
     var f = e.target.closest("[data-fav]");
     if (f) { toggleFav(f.getAttribute("data-fav")); return; }
@@ -546,10 +547,9 @@ body.pod .seekrow { display: flex; }
     var b = e.target.closest("[data-cat]"); if (!b) return;
     filter = b.getAttribute("data-cat"); renderChips(); renderGrid();
   });
-  $("q").addEventListener("input", function (e) { query = e.target.value; renderGrid(); });
 
   function toggleFav(id) {
-    favs = cleanFavs(store.get("favs", []));      // frisch: ein anderer Tab hat evtl. Favoriten geändert
+    favs = cleanFavs(store.get("favs", []));      // fresh: another tab may have changed the favourites
     var i = favs.indexOf(id);
     if (i >= 0) favs.splice(i, 1); else favs.push(id);
     store.set("favs", favs); renderChips(); renderGrid();
@@ -564,66 +564,84 @@ body.pod .seekrow { display: flex; }
     ["nowSub", "dockS"].forEach(function (id) { var el = $(id); el.textContent = text; el.classList.toggle("err", !!isErr); });
   }
 
-  // Jede neue Verbindung zum Stream ist für den Server eine neue Hörer-Sitzung (Werbung beginnt von vorn).
-  // Darum: Klick auf den bereits laufenden Sender verbindet nicht neu, und beim schnellen Umschalten
-  // wird nur zum zuletzt gewählten Sender verbunden.
-  var connT = null, CONNECT_DELAY = 350;
+  // Every new connection to a stream opens a new listener session on the server and loads its start-up buffer again.
+  // So: clicking the station that already plays does not reconnect, and when switching quickly
+  // only the last chosen station is connected.
+  var connT = null, CONNECT_DELAY = 250;
+
+  function markActive() {
+    var a = grid.querySelector(".card.active"); if (a) a.classList.remove("active");
+    var c = current && grid.querySelector('.card[data-id="' + current.id + '"]'); if (c) c.classList.add("active");
+  }
 
   function select(id, autoplay) {
     var s = byId(id); if (!s) return;
-    if (autoplay && current && current.id === s.id && mode === "radio" && wantPlay && !failedAll) return;   // läuft schon
+    if (autoplay && current && current.id === s.id && mode === "radio" && wantPlay && !failedAll) return;   // already playing
     current = s; tryIdx = 0; failedAll = false;
     store.set("last", id);
     setHue(s.cat);
     $("nowName").textContent = s.name;
     $("dockT").textContent = fullName(s);
     $("nowLabel").textContent = s.tag;
-    document.title = fullName(s) + " · Werbefrei Radio";
-    renderGrid();
+    document.title = fullName(s) + " · Technolovers Radio";
+    markActive();
     updateMedia();
     clearTimeout(connT);
-    if (autoplay && !wantPlay) start();            // erster Start direkt im Klick (Autoplay-Regeln, v. a. iOS)
-    else if (autoplay) { setStatus("Verbinde …", false); connT = setTimeout(start, CONNECT_DELAY); }
-    else setStatus("Bereit. Tippe auf Play.", false);
+    if (autoplay && !wantPlay) start();            // first start right inside the click (autoplay rules, mainly iOS)
+    else if (autoplay) {
+      // Switching from a playing station: end the old stream at once and switch off the "playing" display (bars, card animation),
+      // otherwise the animation already runs for the new station while it is still connecting
+      clearTimeout(retryT); resetWatch();
+      if (mode === "radio") dropStream();
+      setStatus("Connecting …", false);
+      connT = setTimeout(start, CONNECT_DELAY);
+    }
+    else setStatus("Ready. Press play.", false);
   }
 
   function candidate() {
     var list = urlsFor(current);
     var g = good[current.id];
-    // Zuletzt funktionierende Adresse zuerst, danach die übrigen Varianten
+    // the address that worked last comes first, then the other variants
     var order = (g && list.indexOf(g) >= 0) ? [g].concat(list.filter(function (u) { return u !== g; })) : list;
     return order[tryIdx] || null;
   }
 
   function start(isRetry) {
     clearTimeout(connT); clearTimeout(retryT);
-    if (!isRetry) { hadPlay = false; initRetries = 0; }      // nur ein frischer Start vergisst, dass der Stream schon lief; Wiederholungen nicht
+    if (!isRetry) { hadPlay = false; initRetries = 0; }      // only a fresh start forgets that the stream already played; retries do not
     resetWatch();
     if (!current) return;
-    if (mode === "pod") { savePos(); pod.pause(); podWant = false; playReq++; setMode("radio"); }   // Podcast läuft: zurück zum Radio
-    wantPlay = true; failedAll = false;
-    tryIdx = 0;                         // jeder neue Start beginnt wieder bei der ersten Adresse
+    if (mode === "pod") { savePos(); pod.pause(); podWant = false; playReq++; setMode("radio"); }   // a podcast is playing: switch back to radio
+    wantPlay = true; failedAll = false; watchOn();
+    tryIdx = 0;                         // every new start begins again with the first address
     var url = candidate();
     if (!url) { fail(); return; }
-    setStatus("Verbinde …", false);
+    setStatus("Connecting …", false);
     document.body.classList.remove("playing");
     audio.src = url;
     audio.load();
     var p = audio.play();
     if (p && p.catch) p.catch(function (err) {
-      if (err && err.name === "NotAllowedError") { wantPlay = false; setStatus("Tippe auf Play, um zu starten.", false); syncPlayIcon(); }
+      if (err && err.name === "NotAllowedError") { wantPlay = false; setStatus("Press play to start.", false); syncPlayIcon(); }
     });
     syncPlayIcon();
+  }
+
+  // Let go of the running stream at once (no more buffering) and switch off the "playing" display
+  function dropStream() {
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+    document.body.classList.remove("playing");
+    if ("mediaSession" in navigator) try { navigator.mediaSession.playbackState = "paused"; } catch (e) {}   // lock screen / media keys: offer play, not pause
   }
 
   function stop() {
     clearTimeout(connT); clearTimeout(retryT); retries = 0;
     wantPlay = false;
-    audio.pause();
-    audio.removeAttribute("src");
-    audio.load();                       // Live-Stream nicht weiter puffern
-    document.body.classList.remove("playing");
-    setStatus(current ? "Pausiert" : "Werbefrei Radio", false);
+    dropStream();
+    setStatus(current ? "Paused" : "Technolovers Radio", false);
     syncPlayIcon();
   }
 
@@ -631,14 +649,14 @@ body.pod .seekrow { display: flex; }
     wantPlay = false; failedAll = true;
     audio.removeAttribute("src");
     document.body.classList.remove("playing");
-    setStatus("Stream nicht erreichbar. Wähle einen anderen Sender.", true);
+    setStatus("Stream unreachable. Pick another station.", true);
     syncPlayIcon();
   }
 
-  // Wiederverbinden nach Abbruch. Jede neue Verbindung ist eine neue Sitzung (Werbung beginnt von vorn),
-  // darum wird nicht bei jedem kurzen Puffern neu verbunden, sondern erst nach längerem Stillstand.
+  // Reconnect after a drop. Every new connection is a new session, so a short buffering pause does not
+  // trigger a reconnect: only a longer standstill does.
   var hadPlay = false, retries = 0, initRetries = 0, retryT = null, lastT = -1, stuck = 0;
-  var STUCK_LIMIT = 4;                  // x 3 s ohne Fortschritt = ca. 12 s Stillstand -> neu verbinden
+  var STUCK_LIMIT = 4;                  // x 3 s without progress = about 12 s standstill -> reconnect
 
   function resetWatch() { lastT = -1; stuck = 0; }
 
@@ -647,7 +665,7 @@ body.pod .seekrow { display: flex; }
     if (!wantPlay || mode !== "radio" || !current) return;
     retries++;
     var wait = Math.min(1000 * retries, 5000);
-    setStatus("Verbinde neu …", false);
+    setStatus("Reconnecting …", false);
     document.body.classList.remove("playing");
     retryT = setTimeout(function () { if (wantPlay && mode === "radio") start(true); }, wait);
   }
@@ -660,27 +678,30 @@ body.pod .seekrow { display: flex; }
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
     syncPlayIcon();
   });
-  audio.addEventListener("waiting", function () { if (wantPlay) setStatus("Puffert …", false); });
-  audio.addEventListener("stalled", function () { if (wantPlay) setStatus("Verbindung wackelt …", false); });
+  audio.addEventListener("waiting", function () { if (wantPlay) setStatus("Buffering …", false); });
+  audio.addEventListener("stalled", function () { if (wantPlay) setStatus("Connection unstable …", false); });
   audio.addEventListener("error", function () {
     if (!wantPlay || !current) return;
-    if (hadPlay) { reconnect(); return; }   // lief schon: gleiche Adresse immer wieder versuchen (bis Stop), nicht auf Schreibvarianten ausweichen und nicht aufgeben
+    if (hadPlay) { reconnect(); return; }   // it played before: keep retrying the same address (until stop), do not fall back to spelling variants and do not give up
     tryIdx++;
     var next = candidate();
-    if (next) { audio.src = next; audio.load(); audio.play().catch(function () {}); setStatus("Verbinde …", false); }
-    else if (initRetries < 2) { initRetries++; reconnect(); }   // Erstverbindung scheitert oft nur kurz (Hörerlimit, Netzwackler): zweimal neu versuchen
+    if (next) { audio.src = next; audio.load(); audio.play().catch(function () {}); setStatus("Connecting …", false); }
+    else if (initRetries < 2) { initRetries++; reconnect(); }   // the first connection often fails only briefly (listener limit, network blip): retry twice
     else fail();
   });
-  audio.addEventListener("ended", function () { if (wantPlay) reconnect(); }); // Stream abgebrochen: neu verbinden
+  audio.addEventListener("ended", function () { if (wantPlay) reconnect(); }); // stream aborted: reconnect
 
-  // Wächter: bleibt die Wiedergabe hängen (kein Fortschritt, auch ohne Fehler-Ereignis), wird neu verbunden
-  setInterval(function () {
-    if (!wantPlay || mode !== "radio" || !current) return;
+  // Watchdog: if playback hangs (no progress, even without an error event), reconnect
+  var watchT = null;
+  function watchOn() { if (!watchT) watchT = setInterval(watchTick, 3000); }
+  function watchTick() {
+    if (!wantPlay) { clearInterval(watchT); watchT = null; return; }       // nothing to watch: switch the timer off completely (battery)
+    if (mode !== "radio" || !current) return;
     var t = audio.currentTime;
     if (!audio.paused && t === lastT) { if (++stuck >= STUCK_LIMIT) { resetWatch(); reconnect(); } }
     else { lastT = t; stuck = 0; if (t > 0) retries = 0; }
-  }, 3000);
-  // Netz ist zurück: nur neu verbinden, wenn der Stream tatsächlich hängt (beim nächsten Wächter-Tick)
+  }
+  // Network is back: only reconnect if the stream really hangs (on the next watchdog tick)
   window.addEventListener("online", function () { if (wantPlay && mode === "radio") stuck = Math.max(stuck, STUCK_LIMIT - 1); });
 
   function toggle() {
@@ -696,7 +717,7 @@ body.pod .seekrow { display: flex; }
     if (mode === "pod") { podSkip(dir); return; }
     var list = visible(); if (!list.length) list = S;
     var i = current ? list.map(function (s) { return s.id; }).indexOf(current.id) : -1;
-    // aktueller Sender nicht in der Liste (anderer Filter): vorwärts der erste, rückwärts der letzte
+    // current station is not in the list (other filter): forward picks the first, backward the last
     var n = i < 0 ? list[dir > 0 ? 0 : list.length - 1] : list[(i + dir + list.length) % list.length];
     select(n.id, true);
     var el = grid.querySelector('[data-id="' + n.id + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -705,30 +726,30 @@ body.pod .seekrow { display: flex; }
   function syncPlayIcon() {
     var playing = mode === "pod" ? podWant : wantPlay;
     $("playIcon").innerHTML = playing ? '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
-    $("play").setAttribute("aria-label", playing ? "Pause" : "Abspielen");
+    $("play").setAttribute("aria-label", playing ? "Pause" : "Play");
   }
 
   $("play").addEventListener("click", toggle);
   $("next").addEventListener("click", function () { step(1); });
   $("prev").addEventListener("click", function () { step(-1); });
-  // Eingabefelder (auch Auswahllisten) behalten ihre Tasten; mit Alt/Strg/Cmd sind es Browser-Kürzel (Alt+← = Zurück)
+  // Input fields (including select lists) keep their keys; with Alt/Ctrl/Cmd they are browser shortcuts (Alt+← = back)
   function typing(t) { var n = t && t.tagName; return n === "INPUT" || n === "SELECT" || n === "TEXTAREA" || !!(t && (t.isContentEditable || (t.closest && t.closest("#sleepPanel")))); }
   document.addEventListener("keydown", function (e) {
-    if (typing(e.target) || view === "note" || e.altKey || e.ctrlKey || e.metaKey) return;     // beim Lesen scrollt die Leertaste die Notiz
+    if (typing(e.target) || view === "note" || e.altKey || e.ctrlKey || e.metaKey) return;     // while reading, the space bar scrolls the note
     if (e.code === "Space") { e.preventDefault(); toggle(); }
     else if (e.code === "ArrowRight") { if (mode === "pod") podSeek(30); else step(1); }
     else if (e.code === "ArrowLeft") { if (mode === "pod") podSeek(-15); else step(-1); }
   });
-  // Leertaste löst auf einem fokussierten Button sonst zusätzlich dessen Klick aus (Doppel-Toggle)
+  // Otherwise the space bar also triggers the click of a focused button (double toggle)
   document.addEventListener("keyup", function (e) {
     if (e.code === "Space" && !typing(e.target) && view !== "note" && !e.altKey && !e.ctrlKey && !e.metaKey) e.preventDefault();
   });
 
-  /* ---------- Lautstärke ---------- */
+  /* ---------- Volume ---------- */
   var vol = $("vol"), muted = false, fade = 1;
   function applyVol() {
     var base = muted ? 0 : vol.value / 100;
-    var v = base * fade;                // fade: Ausblenden des Einschlaf-Timers (1 = normal)
+    var v = base * fade;                // fade: sleep timer fade-out (1 = normal)
     audio.volume = v;
     if (pod) pod.volume = v;
     vol.style.setProperty("--p", vol.value + "%");
@@ -739,8 +760,8 @@ body.pod .seekrow { display: flex; }
   $("mute").addEventListener("click", function () { muted = !muted; applyVol(); });
   applyVol();
 
-  /* ---------- Einschlaf-Timer ---------- */
-  // Laufzeit 1 bis 240 Minuten; Auswahl, Erhöhen, Verringern und Abbrechen im Bedienfeld.
+  /* ---------- Sleep timer ---------- */
+  // Runs 1 to 240 minutes; pick, raise, lower and cancel in the panel.
   var SLEEP_MIN = 60000, SLEEP_MAX = 240 * 60000, FADE_MS = 20000;
   var sleepEnd = 0, sleepTick = null;
   var spBtn = $("sleep"), spPanel = $("sleepPanel");
@@ -753,8 +774,8 @@ body.pod .seekrow { display: flex; }
   function sleepRender() {
     var on = sleepEnd > 0, left = on ? Math.max(0, sleepEnd - Date.now()) : 0;
     spBtn.classList.toggle("on", on);
-    spBtn.textContent = !on ? "Timer aus" : left >= 60000 ? "Noch " + Math.ceil(left / 60000) + " min" : "Noch " + Math.ceil(left / 1000) + " s";
-    $("spLeft").textContent = on ? fmtLeft(left) : "Aus";
+    spBtn.textContent = !on ? "Timer off" : left >= 60000 ? Math.ceil(left / 60000) + " min left" : Math.ceil(left / 1000) + " s left";
+    $("spLeft").textContent = on ? fmtLeft(left) : "Off";
     $("spLeft").classList.toggle("on", on);
     $("spOff").disabled = !on;
     Array.prototype.forEach.call(spPanel.querySelectorAll("[data-adj]"), function (b) { b.disabled = !on; });
@@ -767,14 +788,15 @@ body.pod .seekrow { display: flex; }
     if (left <= 0) { sleepFire(); return; }
     setFade(left >= FADE_MS ? 1 : left / FADE_MS);
     sleepRender();
-    sleepTick = setTimeout(sleepLoop, left <= FADE_MS ? 250 : Math.max(50, Math.min(1000, left - FADE_MS)));
+    var next = left <= FADE_MS ? 250 : Math.min(left - FADE_MS, spPanel.hidden && left > 60000 ? (left - 1) % 60000 + 50 : 1000);   // panel closed: only when "N min left" changes
+    sleepTick = setTimeout(sleepLoop, Math.max(50, next));
   }
-  function sleepSet(ms) {                       // Restzeit auf ms setzen (begrenzt)
+  function sleepSet(ms) {                       // set the remaining time to ms (clamped)
     sleepEnd = Date.now() + Math.max(SLEEP_MIN, Math.min(SLEEP_MAX, ms));
     setFade(1);
     sleepLoop();
   }
-  function sleepAdd(min) {                      // Restzeit um min Minuten ändern; ohne laufenden Timer nur Erhöhen starten
+  function sleepAdd(min) {                      // change the remaining time by min minutes; without a running timer only raising starts one
     if (!sleepEnd && min < 0) return;
     sleepSet((sleepEnd ? sleepEnd - Date.now() : 0) + min * 60000);
   }
@@ -786,12 +808,13 @@ body.pod .seekrow { display: flex; }
   function sleepFire() {
     sleepEnd = 0; clearTimeout(sleepTick);
     if (mode === "pod") podPause(); else stop();
-    setFade(1);                                 // Lautstärke für das nächste Abspielen zurücksetzen
+    setFade(1);                                 // reset the volume for the next playback
     sleepRender();
-    setStatus("Einschlaf-Timer beendet", false);
+    setStatus("Sleep timer finished", false);
   }
   function sleepPanel(open) {
     spPanel.hidden = !open;
+    if (sleepEnd) sleepLoop();                  // match the tick rate to the panel (every second when open, every minute when closed)
     spBtn.setAttribute("aria-expanded", String(open));
     if (open) sleepRender();
   }
@@ -803,16 +826,16 @@ body.pod .seekrow { display: flex; }
     else if (b.hasAttribute("data-adj")) sleepAdd(+b.getAttribute("data-adj"));
     else if (b.id === "spOff") sleepCancel();
   });
-  document.addEventListener("click", function (e) {            // Klick daneben schließt das Bedienfeld
+  document.addEventListener("click", function (e) {            // a click outside closes the panel
     if (!spPanel.hidden && !spPanel.contains(e.target) && !spBtn.contains(e.target)) sleepPanel(false);
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !spPanel.hidden) { sleepPanel(false); spBtn.focus(); }
   });
-  // Versteckte Tabs drosseln Zeitgeber: beim Zurückkehren sofort prüfen, ob der Timer abgelaufen ist
+  // Hidden tabs throttle timers: when coming back, check at once whether the timer has run out
   document.addEventListener("visibilitychange", function () { if (sleepEnd) sleepLoop(); });
 
-  /* ---------- Sperrbildschirm-Steuerung ---------- */
+  /* ---------- Lock screen controls ---------- */
   function updateMedia() {
     if (!("mediaSession" in navigator) || !current) return;
     try { navigator.mediaSession.metadata = new MediaMetadata({ title: fullName(current), artist: current.brand, album: current.tag }); } catch (e) {}
@@ -832,47 +855,48 @@ body.pod .seekrow { display: flex; }
   }
 
   /* ---------- Podcasts ---------- */
-  // Suche und Folgenlisten: iTunes Search API (kostenlos, ohne Schlüssel, CORS erlaubt).
+  // Search and episode lists: iTunes Search API (free, no key, CORS allowed).
   var API = "https://itunes.apple.com/";
-  var mode = "radio";                     // was gerade im Player läuft: "radio" | "pod" ("pod" = Datei-Player für Podcasts und Hörbücher)
-  var podWant = false;                    // Podcast soll laufen (Gegenstück zu wantPlay)
+  var mode = "radio";                     // what the player is playing right now: "radio" | "pod" ("pod" = file player for podcasts and audiobooks)
+  var podWant = false;                    // the podcast should play (counterpart of wantPlay)
   var pod = new Audio();
   pod.preload = "none";
 
   var subs = store.get("subs", {});       // showId -> { id, name, artist, art, seen }
-  var queue = store.get("queue", []);     // Wiedergabeliste (Folgen ohne Beschreibung)
-  var pos = store.get("pos", {});         // Folgen-ID -> Sekunden (Hörfortschritt)
-  var done = store.get("done", {});       // Folgen-ID -> 1 (zu Ende gehört)
-  var dlMeta = store.get("dl", {});       // Folgen-ID -> Folge + { size, ts }; die Datei selbst liegt in IndexedDB
+  var queue = store.get("queue", []);     // queue (episodes without description)
+  var pos = store.get("pos", {});         // episode ID -> seconds (listening progress)
+  var done = store.get("done", {});       // episode ID -> 1 (listened to the end)
+  var dlMeta = store.get("dl", {});       // episode ID -> episode + { size, ts }; the file itself is in IndexedDB
   var rate = store.get("rate", 1);
   var view = store.get("view", "radio");
-  if (!Array.isArray(queue)) queue = [];                     // beschädigte Daten im Speicher abfangen
+  if (!Array.isArray(queue)) queue = [];                     // guard against corrupted stored data
   function obj(o) { return o && typeof o === "object" && !Array.isArray(o) ? o : {}; }
   subs = obj(subs); pos = obj(pos); done = obj(done); dlMeta = obj(dlMeta);
   var podTab = "subs", openShow = null, showEps = null, curEp = null;
   var pendingSeek = 0, lastSave = 0, blobUrl = null, rawTried = false;
-  var srcEp = null, playReq = 0;          // srcEp: Folge, deren Quelle gerade im Player geladen ist; playReq: macht ausstehende Starts ungültig
+  var srcEp = null, playReq = 0;          // srcEp: episode whose source is loaded in the player right now; playReq: invalidates pending starts
   var epIndex = {}, showIndex = {}, dling = {};
   var feed = null, feedBusy = false;
   var sq = "", skind = "show", sres = null, sbusy = false, serr = false, stimer = null, stoken = 0;
-  var TABS = [{ id: "subs", name: "Abos" }, { id: "search", name: "Suche" }, { id: "queue", name: "Wiedergabeliste" }, { id: "dl", name: "Downloads" }];
+  var TABS = [{ id: "subs", name: "Subscriptions" }, { id: "search", name: "Search" }, { id: "queue", name: "Queue" }, { id: "dl", name: "Downloads" }];
   var RATES = [1, 1.25, 1.5, 1.75, 2, 0.75];
 
   var podBody = $("podBody"), podTabs = $("podTabs"), seekEl = $("seek");
 
-  /* -- Helfer -- */
+  /* -- Helpers -- */
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function plain(s) { try { return (new DOMParser().parseFromString(String(s), "text/html").body.textContent || "").replace(/\s+/g, " ").trim(); } catch (e) { return ""; } }
   function fmtT(s) { s = Math.max(0, Math.floor(s || 0)); var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" + (m < 10 ? "0" : "") + m : m) + ":" + (x < 10 ? "0" : "") + x; }
-  function fmtDur(ms) { var m = Math.round(ms / 60000); if (!m) return ""; return m >= 60 ? Math.floor(m / 60) + " Std" + (m % 60 ? " " + (m % 60) + " min" : "") : m + " min"; }
-  function fmtDate(iso) { var d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("de-DE", { day: "numeric", month: "short", year: "numeric" }); }
+  function fmtDur(ms) { var m = Math.round(ms / 60000); if (!m) return ""; return m >= 60 ? Math.floor(m / 60) + " h" + (m % 60 ? " " + (m % 60) + " min" : "") : m + " min"; }
+  function fmtDate(iso) { var d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); }
+  function cnt(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }       // "1 note", "2 notes"
   function fmtSize(b) { if (!(b > 0)) return "0 KB"; return b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
   var toastT = null;
   function toast(html, ms) { var t = $("toast"); t.innerHTML = html; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, ms || 5000); }
 
   function api(path) { return fetch(API + path).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }); }
   function toEp(r) {
-    return { id: String(r.trackId), title: r.trackName || "Folge", show: r.collectionName || "", showId: String(r.collectionId || ""),
+    return { id: String(r.trackId), title: r.trackName || "Episode", show: r.collectionName || "", showId: String(r.collectionId || ""),
       art: r.artworkUrl160 || r.artworkUrl100 || r.artworkUrl60 || "", url: r.episodeUrl || "", ms: +r.trackTimeMillis || 0,
       date: r.releaseDate || "", desc: plain(r.description || r.shortDescription || "") };
   }
@@ -880,14 +904,14 @@ body.pod .seekrow { display: flex; }
   function epsOf(d) { return (d.results || []).filter(function (r) { return r.kind === "podcast-episode" && /^https?:\/\//i.test(r.episodeUrl || ""); }).map(function (r) { return reg(toEp(r)); }); }
   function reg(ep) { epIndex[ep.id] = ep; return ep; }
   function lite(ep) { return { id: ep.id, title: ep.title, show: ep.show, showId: ep.showId, art: ep.art, url: ep.url, ms: ep.ms, date: ep.date }; }
-  // Vor jeder Änderung frisch aus dem Speicher lesen: ein anderer Tab hat inzwischen vielleicht gespeichert (sonst würde dieser Tab dessen Stand
-  // mit seinem alten überschreiben, z. B. einen dort gemachten Download vergessen, dessen Datei dann ohne Eintrag in IndexedDB bliebe)
+  // Before every change, read fresh from storage: another tab may have saved in the meantime (otherwise this tab would overwrite its state
+  // with its own old one, e.g. forget a download made there, whose file would then stay in IndexedDB without an entry)
   function loadQueue() { var q = store.get("queue", []); queue = Array.isArray(q) ? q : []; queue.forEach(reg); }
   function loadDl() { dlMeta = obj(store.get("dl", {})); Object.keys(dlMeta).forEach(function (k) { reg(dlMeta[k]); }); }
   function loadProgress() { pos = obj(store.get("pos", {})); done = obj(store.get("done", {})); }
   loadQueue(); loadDl();
 
-  /* -- Offline-Speicher (IndexedDB) -- */
+  /* -- Offline storage (IndexedDB) -- */
   var dbp = null;
   function idb() {
     if (!dbp) dbp = new Promise(function (res, rej) {
@@ -908,7 +932,7 @@ body.pod .seekrow { display: flex; }
     });
   }
 
-  /* -- Zeilen -- */
+  /* -- Rows -- */
   function sv(p, fill) { return '<svg width="20" height="20" viewBox="0 0 24 24" fill="' + (fill ? "currentColor" : "none") + '" stroke="' + (fill ? "none" : "currentColor") + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + "</svg>"; }
   var P = {
     play: '<path d="M8 5v14l11-7z"/>', pause: '<path d="M7 5h4v14H7zM13 5h4v14h-4z"/>',
@@ -927,32 +951,32 @@ body.pod .seekrow { display: flex; }
     if (ctx !== "list" || !openShow) parts.push(esc(ep.show));
     if (ep.date) parts.push(esc(fmtDate(ep.date)));
     if (ep.ms) parts.push(fmtDur(ep.ms));
-    if (done[id]) parts.push("✓ gehört"); else if (pos[id] > 10) parts.push("bei " + fmtT(pos[id]));
-    var acts = ab("play", id, sv(now ? P.pause : P.play, true), now ? "Pause" : "Abspielen");
+    if (done[id]) parts.push("✓ heard"); else if (pos[id] > 10) parts.push("at " + fmtT(pos[id]));
+    var acts = ab("play", id, sv(now ? P.pause : P.play, true), now ? "Pause" : "Play");
     if (ctx === "queue") {
-      acts += ab("qup", id, sv(P.up), "Nach oben") + ab("qdown", id, sv(P.down), "Nach unten") + ab("qrm", id, sv(P.trash), "Aus Wiedergabeliste entfernen");
+      acts += ab("qup", id, sv(P.up), "Move up") + ab("qdown", id, sv(P.down), "Move down") + ab("qrm", id, sv(P.trash), "Remove from queue");
     } else if (ctx === "dl") {
-      acts += ab("qadd", id, sv(qIdx(id) >= 0 ? P.qon : P.qadd), qIdx(id) >= 0 ? "Aus Wiedergabeliste entfernen" : "Zur Wiedergabeliste", qIdx(id) >= 0) +
-        ab("dlsave", id, sv(P.save), "Als Datei speichern") + ab("dlrm", id, sv(P.trash), "Download löschen");
+      acts += ab("qadd", id, sv(qIdx(id) >= 0 ? P.qon : P.qadd), qIdx(id) >= 0 ? "Remove from queue" : "Add to queue", qIdx(id) >= 0) +
+        ab("dlsave", id, sv(P.save), "Save as file") + ab("dlrm", id, sv(P.trash), "Delete download");
     } else {
       var inQ = qIdx(id) >= 0;
-      acts += ab("qadd", id, sv(inQ ? P.qon : P.qadd), inQ ? "Aus Wiedergabeliste entfernen" : "Zur Wiedergabeliste", inQ);
-      if (dlMeta[id]) acts += ab("noop", id, sv(P.ok), "Heruntergeladen", true, true);
-      else if (dling[id] != null) acts += '<button class="btn" disabled aria-label="Lädt herunter"><span class="pct" data-dl="' + esc(id) + '">' + dling[id] + "%</span></button>";
-      else acts += ab("dl", id, sv(P.dl), "Herunterladen");
+      acts += ab("qadd", id, sv(inQ ? P.qon : P.qadd), inQ ? "Remove from queue" : "Add to queue", inQ);
+      if (dlMeta[id]) acts += ab("noop", id, sv(P.ok), "Downloaded", true, true);
+      else if (dling[id] != null) acts += '<button class="btn" disabled aria-label="Downloading"><span class="pct" data-dl="' + esc(id) + '">' + dling[id] + "%</span></button>";
+      else acts += ab("dl", id, sv(P.dl), "Download");
     }
     return '<div class="pod-row' + (isCur ? " cur" : "") + '"><img class="pod-art" src="' + esc(ep.art) + '" alt="" loading="lazy">' +
-      '<div class="pod-tx"><div class="pod-ti">' + esc(ep.title) + (isNew ? ' <span class="pill">neu</span>' : "") + '</div><div class="pod-meta">' + parts.join(" · ") + "</div>" +
+      '<div class="pod-tx"><div class="pod-ti">' + esc(ep.title) + (isNew ? ' <span class="pill">new</span>' : "") + '</div><div class="pod-meta">' + parts.join(" · ") + "</div>" +
       (ep.desc && ctx === "list" ? '<div class="pod-desc">' + esc(ep.desc.slice(0, 300)) + "</div>" : "") + '</div><div class="pod-act">' + acts + "</div></div>";
   }
   function showRow(s) {
     var sub = !!subs[s.id];
     return '<div class="pod-row"><img class="pod-art" src="' + esc(s.art) + '" alt="" loading="lazy"><div class="pod-tx"><div class="pod-ti">' + esc(s.name) + '</div><div class="pod-meta">' + esc(s.artist) +
-      '</div></div><div class="pod-act">' + pb("show", s.id, "Folgen") + pb("sub", s.id, sub ? "Abonniert ✓" : "Abonnieren", sub) + "</div></div>";
+      '</div></div><div class="pod-act">' + pb("show", s.id, "Episodes") + pb("sub", s.id, sub ? "Subscribed ✓" : "Subscribe", sub) + "</div></div>";
   }
   function empty(t) { return '<div class="empty">' + t + "</div>"; }
 
-  /* -- Ansichten -- */
+  /* -- Views -- */
   function renderPodTabs() {
     var n = { subs: Object.keys(subs).length, search: 0, queue: queue.length, dl: Object.keys(dlMeta).length };
     podTabs.innerHTML = TABS.map(function (t) {
@@ -967,7 +991,7 @@ body.pod .seekrow { display: flex; }
     else if (podTab === "queue") renderQueue();
     else renderDl();
   }
-  function refreshPod() { if (view === "pod") renderPod(); else if (view === "book") renderBook(); }   // aktualisiert die sichtbare Medienliste
+  function refreshPod() { if (view === "pod") renderPod(); else if (view === "book") renderBook(); }   // refreshes the visible media list
 
   function feedKey() { return Object.keys(subs).sort().join(","); }
   function loadFeed() {
@@ -978,7 +1002,7 @@ body.pod .seekrow { display: flex; }
       return api("lookup?id=" + encodeURIComponent(id) + "&entity=podcastEpisode&limit=8").then(epsOf).catch(function () { return []; });
     })).then(function (lists) {
       feedBusy = false;
-      if (key !== feedKey()) {                          // Abos haben sich während der Anfrage geändert: verwerfen, neu laden
+      if (key !== feedKey()) {                          // subscriptions changed during the request: discard and reload
         feed = null; if (view === "pod" && !openShow && podTab === "subs") renderSubs(); return;
       }
       var all = [].concat.apply([], lists).sort(function (a, b) { return Date.parse(b.date) - Date.parse(a.date); });
@@ -990,23 +1014,23 @@ body.pod .seekrow { display: flex; }
 
   function renderSubs() {
     var ids = Object.keys(subs);
-    if (!ids.length) { podBody.innerHTML = empty("Noch keine Abos. Suche einen Podcast und tippe auf „Abonnieren“."); return; }
+    if (!ids.length) { podBody.innerHTML = empty("No subscriptions yet. Search for a podcast and tap \"Subscribe\"."); return; }
     if (!feed || Date.now() - feed.t > 600000) loadFeed();
     var fresh = {}; if (feed) feed.eps.forEach(function (ep) { if (isNewEp(ep)) fresh[ep.showId] = (fresh[ep.showId] || 0) + 1; });
-    podBody.innerHTML = '<div class="pod-sec">Meine Podcasts</div><div class="shows">' + ids.map(function (id) {
+    podBody.innerHTML = '<div class="pod-sec">My podcasts</div><div class="shows">' + ids.map(function (id) {
       var s = subs[id];
       return '<button class="show-card" data-act="show" data-id="' + esc(id) + '"><img src="' + esc(s.art) + '" alt="" loading="lazy"><div class="nm">' + esc(s.name) +
-        (fresh[id] ? ' <span class="pill">' + fresh[id] + " neu</span>" : "") + '</div><div class="ar">' + esc(s.artist) + "</div></button>";
-    }).join("") + '</div><div class="pod-sec">Neueste Folgen</div><div class="pod-list">' +
-      (feed ? (feed.eps.length ? feed.eps.map(function (ep) { return epRow(ep, "list", isNewEp(ep)); }).join("") : empty("Keine Folgen gefunden.")) : empty("Lade …")) + "</div>";
+        (fresh[id] ? ' <span class="pill">' + fresh[id] + " new</span>" : "") + '</div><div class="ar">' + esc(s.artist) + "</div></button>";
+    }).join("") + '</div><div class="pod-sec">Latest episodes</div><div class="pod-list">' +
+      (feed ? (feed.eps.length ? feed.eps.map(function (ep) { return epRow(ep, "list", isNewEp(ep)); }).join("") : empty("No episodes found.")) : empty("Loading …")) + "</div>";
   }
 
   function renderSearch() {
-    var q = sq.trim(), html = '<div class="kinds">' + pb("kind", "show", "Sendungen", skind === "show") + pb("kind", "ep", "Einzelne Folgen", skind === "ep") + "</div>";
-    if (!q) html += empty("Suche nach Podcasts oder einzelnen Folgen, zum Beispiel „Techno“, „Mix“ oder „News“.");
-    else if (sbusy) html += empty("Suche …");
-    else if (serr) html += empty("Suche nicht möglich. Prüfe die Internetverbindung.");
-    else if (sres && sres.kind === skind) html += sres.items.length ? '<div class="pod-list">' + sres.items.map(function (x) { return skind === "show" ? showRow(x) : epRow(x, "list"); }).join("") + "</div>" : empty("Nichts gefunden.");
+    var q = sq.trim(), html = '<div class="kinds">' + pb("kind", "show", "Shows", skind === "show") + pb("kind", "ep", "Single episodes", skind === "ep") + "</div>";
+    if (!q) html += empty("Search for podcasts or single episodes, for example \"techno\", \"mix\" or \"news\".");
+    else if (sbusy) html += empty("Searching …");
+    else if (serr) html += empty("Search is not possible. Check your internet connection.");
+    else if (sres && sres.kind === skind) html += sres.items.length ? '<div class="pod-list">' + sres.items.map(function (x) { return skind === "show" ? showRow(x) : epRow(x, "list"); }).join("") + "</div>" : empty("Nothing found.");
     podBody.innerHTML = html;
   }
   function runSearch() {
@@ -1023,35 +1047,35 @@ body.pod .seekrow { display: flex; }
   function regShow(s) { showIndex[s.id] = s; return s; }
 
   function renderQueue() {
-    if (!queue.length) { podBody.innerHTML = empty("Die Wiedergabeliste ist leer. Tippe bei einer Folge auf das Listen-Symbol."); return; }
-    podBody.innerHTML = '<div class="pod-sec"><span>' + queue.length + " Folgen</span><span>" + pb("qplay", "0", "Alle abspielen") + " " + pb("qclear", "0", "Leeren") + '</span></div><div class="pod-list">' +
+    if (!queue.length) { podBody.innerHTML = empty("The queue is empty. Tap the list icon on an episode."); return; }
+    podBody.innerHTML = '<div class="pod-sec"><span>' + cnt(queue.length, "episode") + "</span><span>" + pb("qplay", "0", "Play all") + " " + pb("qclear", "0", "Clear") + '</span></div><div class="pod-list">' +
       queue.map(function (ep) { return epRow(ep, "queue"); }).join("") + "</div>";
   }
   function renderDl() {
     var ids = Object.keys(dlMeta).sort(function (a, b) { return dlMeta[b].ts - dlMeta[a].ts; });
-    if (!ids.length) { podBody.innerHTML = empty("Keine Downloads. Heruntergeladene Folgen laufen auch ohne Internet."); return; }
+    if (!ids.length) { podBody.innerHTML = empty("No downloads. Downloaded episodes also play without internet."); return; }
     var total = ids.reduce(function (n, id) { return n + (dlMeta[id].size || 0); }, 0);
-    podBody.innerHTML = '<div class="pod-sec"><span>' + ids.length + " Folgen · " + fmtSize(total) + '</span></div><div class="pod-list">' + ids.map(function (id) { return epRow(dlMeta[id], "dl"); }).join("") + "</div>";
+    podBody.innerHTML = '<div class="pod-sec"><span>' + cnt(ids.length, "episode") + " · " + fmtSize(total) + '</span></div><div class="pod-list">' + ids.map(function (id) { return epRow(dlMeta[id], "dl"); }).join("") + "</div>";
   }
 
   function renderShow() {
     if (!podBody.querySelector("#epList")) {
       podBody.innerHTML = '<div id="showHead"></div><div class="tools"><label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>' +
-        '<input id="eq" type="search" placeholder="In den Folgen suchen" autocomplete="off" aria-label="In den Folgen suchen"></label></div><div class="pod-list" id="epList"></div><div class="hint" id="epHint"></div>';
+        '<input id="eq" type="search" placeholder="Search in the episodes" autocomplete="off" aria-label="Search in the episodes"></label></div><div class="pod-list" id="epList"></div><div class="hint" id="epHint"></div>';
       $("eq").addEventListener("input", renderEpList);
     }
     var sub = !!subs[openShow.id];
-    $("showHead").innerHTML = '<div class="back-row">' + pb("back", "0", "← Zurück") + '</div><div class="show-head"><img src="' + esc(openShow.art) + '" alt=""><div class="tx"><h2>' + esc(openShow.name) + "</h2><p>" + esc(openShow.artist) + "</p></div>" + pb("sub", openShow.id, sub ? "Abonniert ✓" : "Abonnieren", sub) + "</div>";
+    $("showHead").innerHTML = '<div class="back-row">' + pb("back", "0", "← Back") + '</div><div class="show-head"><img src="' + esc(openShow.art) + '" alt=""><div class="tx"><h2>' + esc(openShow.name) + "</h2><p>" + esc(openShow.artist) + "</p></div>" + pb("sub", openShow.id, sub ? "Subscribed ✓" : "Subscribe", sub) + "</div>";
     renderEpList();
   }
   function renderEpList() {
     var el = $("epList"); if (!el) return;
-    if (showEps === null) { el.innerHTML = empty("Lade Folgen …"); $("epHint").textContent = ""; return; }
-    if (showEps === "err") { el.innerHTML = empty("Folgen konnten nicht geladen werden. Prüfe die Internetverbindung."); return; }
+    if (showEps === null) { el.innerHTML = empty("Loading episodes …"); $("epHint").textContent = ""; return; }
+    if (showEps === "err") { el.innerHTML = empty("Episodes could not be loaded. Check your internet connection."); return; }
     var q = ($("eq").value || "").trim().toLowerCase();
     var list = q ? showEps.filter(function (ep) { return (ep.title + " " + ep.desc).toLowerCase().indexOf(q) >= 0; }) : showEps;
-    el.innerHTML = list.length ? list.map(function (ep) { return epRow(ep, "list"); }).join("") : empty("Keine Folge gefunden.");
-    $("epHint").textContent = showEps.length >= 200 ? "Es werden die neuesten 200 Folgen angezeigt." : "";
+    el.innerHTML = list.length ? list.map(function (ep) { return epRow(ep, "list"); }).join("") : empty("No episode found.");
+    $("epHint").textContent = showEps.length >= 200 ? "Showing the newest 200 episodes." : "";
   }
   function openShowById(s) {
     if (!s) return;
@@ -1070,7 +1094,7 @@ body.pod .seekrow { display: flex; }
     store.set("subs", subs); feed = null; renderPod();
   }
 
-  /* -- Wiedergabeliste / Download -- */
+  /* -- Queue / download -- */
   function toggleQueue(ep) {
     loadQueue();
     var i = qIdx(ep.id);
@@ -1086,8 +1110,8 @@ body.pod .seekrow { display: flex; }
     Array.prototype.forEach.call(podBody.querySelectorAll("[data-dl]"), function (el) { if (el.getAttribute("data-dl") === id) el.textContent = dling[id] + "%"; });
   }
   function fetchBlob(ep, onPct) {
-    // http-Adressen zuerst als https laden (auf einer https-Seite blockiert der Browser sonst alles als Mixed Content);
-    // die Originaladresse nur versuchen, wenn die App selbst über http läuft
+    // Load http addresses as https first (on an https page the browser blocks everything else as mixed content);
+    // try the original address only if the app itself runs over http
     var urls = [httpsUrl(ep.url)];
     if (urls[0] !== ep.url && location.protocol !== "https:") urls.push(ep.url);
     function attempt(i) { return fetchOne(urls[i], onPct).catch(function (err) { if (i + 1 < urls.length) return attempt(i + 1); throw err; }); }
@@ -1117,9 +1141,9 @@ body.pod .seekrow { display: flex; }
         var m = lite(ep); m.size = blob.size; m.ts = Date.now(); loadDl(); dlMeta[ep.id] = m; store.set("dl", dlMeta);
       });
     }, function () {
-      // Anbieter erlaubt keinen Zugriff aus dem Browser (CORS): Datei kann nur direkt geöffnet werden
-      toast("Dieser Anbieter erlaubt keinen direkten Download. <a href=\"" + esc(ep.url) + "\" target=\"_blank\" rel=\"noopener\">Datei im Browser öffnen</a>", 12000);
-    }).catch(function () { toast("Speichern fehlgeschlagen. Ist der Speicher voll?", 7000); })
+      // The publisher does not allow access from the browser (CORS): the file can only be opened directly
+      toast("This publisher does not allow a direct download. <a href=\"" + esc(ep.url) + "\" target=\"_blank\" rel=\"noopener\">Open the file in the browser</a>", 12000);
+    }).catch(function () { toast("Saving failed. Is the storage full?", 7000); })
       .then(function () { delete dling[ep.id]; renderPod(); });
   }
   function removeDl(id) {
@@ -1129,17 +1153,17 @@ body.pod .seekrow { display: flex; }
     idbDo("readonly", function (os) { return os.get(ep.id); }).then(function (blob) {
       if (!blob) throw new Error("missing");
       var a = document.createElement("a"), u = URL.createObjectURL(blob), m = /\.(mp3|m4a|aac|ogg|opus|wav)(\?|$)/i.exec(ep.url);
-      a.href = u; a.download = (String(ep.title || "").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || "Folge") + "." + (m ? m[1].toLowerCase() : "mp3");
+      a.href = u; a.download = (String(ep.title || "").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || "Episode") + "." + (m ? m[1].toLowerCase() : "mp3");
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(u); }, 10000);
-    }).catch(function () { toast("Datei konnte nicht gelesen werden.", 5000); });
+    }).catch(function () { toast("The file could not be read.", 5000); });
   }
 
-  /* -- Podcast-Player -- */
+  /* -- Podcast player -- */
   function setMode(m) {
     mode = m; document.body.classList.toggle("pod", m === "pod");
-    $("prev").setAttribute("aria-label", m === "pod" ? "Vorherige Folge" : "Vorheriger Sender");
-    $("next").setAttribute("aria-label", m === "pod" ? "Nächste Folge" : "Nächster Sender");
+    $("prev").setAttribute("aria-label", m === "pod" ? "Previous episode" : "Previous station");
+    $("next").setAttribute("aria-label", m === "pod" ? "Next episode" : "Next station");
   }
   function podStatus(text, isErr) { var el = $("dockS"); el.textContent = text; el.classList.toggle("err", !!isErr); }
   function httpsUrl(u) { return u.replace(/^http:\/\//i, "https://"); }
@@ -1147,7 +1171,7 @@ body.pod .seekrow { display: flex; }
     if (ep.kind === "book") return bookSrc(ep);
     if (!dlMeta[ep.id]) return Promise.resolve(httpsUrl(ep.url));
     return idbDo("readonly", function (os) { return os.get(ep.id); }).then(function (blob) {
-      if (!blob) return httpsUrl(ep.url);                // Datei fehlt: wie nicht heruntergeladen streamen (http wäre auf https blockiert)
+      if (!blob) return httpsUrl(ep.url);                // file missing: stream it as if it was not downloaded (http would be blocked on https)
       if (blobUrl) URL.revokeObjectURL(blobUrl);
       return (blobUrl = URL.createObjectURL(blob));
     }).catch(function () { return httpsUrl(ep.url); });
@@ -1155,26 +1179,26 @@ body.pod .seekrow { display: flex; }
   function playEp(ep) {
     if (!ep || !(ep.url || ep.kind === "book")) return;
     if (mode !== "pod") { if (wantPlay) stop(); document.body.classList.remove("playing"); setMode("pod"); }
-    else if (srcEp) { savePos(); pod.pause(); }          // vorherige Folge: Fortschritt sichern, bevor curEp wechselt
+    else if (srcEp) { savePos(); pod.pause(); }          // previous episode: save the progress before curEp changes
     var my = ++playReq;
     curEp = ep; podWant = true; rawTried = false;
     if (ep.kind === "book") rememberBookTrack(ep);
     $("dockT").textContent = ep.title; podStatus(ep.show, false);
-    document.title = ep.title + " · Werbefrei Radio";
+    document.title = ep.title + " · Technolovers Radio";
     podMedia(); syncPlayIcon(); refreshPod();
     resolveSrc(ep).then(function (src) {
-      if (my !== playReq || mode !== "pod") return;       // inzwischen andere Folge gewählt oder zum Radio gewechselt
-      if (!src) {                                         // Datei fehlt: alte Quelle verwerfen, sonst würde Play sie unter dem neuen Titel abspielen
-        clearSrc(); podWant = false; podMs("paused"); podStatus("Datei nicht gefunden. Füge das Buch erneut hinzu.", true); syncPlayIcon(); refreshPod(); return;
+      if (my !== playReq || mode !== "pod") return;       // meanwhile another episode was chosen or the app switched to radio
+      if (!src) {                                         // file missing: drop the old source, otherwise play would play it under the new title
+        clearSrc(); podWant = false; podMs("paused"); podStatus("File not found. Add the book again.", true); syncPlayIcon(); refreshPod(); return;
       }
       pendingSeek = pos[ep.id] || 0;
-      if (blobUrl && src !== blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }   // vorherige Datei-Kopie freigeben
+      if (blobUrl && src !== blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }   // release the previous file copy
       pod.src = src; srcEp = ep; pod.playbackRate = rate;
       var p = pod.play();
       if (p && p.catch) p.catch(function (err) { if (err && err.name === "NotAllowedError") { podWant = false; podMs("paused"); syncPlayIcon(); refreshPod(); } });
     });
   }
-  // Pause bricht auch einen Start ab, dessen Datei noch gelesen wird (srcEp ist dann noch nicht die gewählte Folge); sonst liefe sie danach trotzdem los
+  // Pause also cancels a start whose file is still being read (srcEp is not the chosen episode yet); otherwise it would start playing anyway afterwards
   function podPause() {
     if (podWant && curEp && srcEp !== curEp) { playReq++; clearSrc(); podWant = false; podMs("paused"); syncPlayIcon(); refreshPod(); return; }
     pod.pause();
@@ -1194,13 +1218,13 @@ body.pod .seekrow { display: flex; }
   }
   function podSkip(dir) {
     if (curEp && curEp.kind === "book") { bookSkip(dir); return; }
-    if (dir > 0) { var n = nextInQueue(1); if (n) playEp(n); else toast("Ende der Wiedergabeliste.", 3000); return; }
+    if (dir > 0) { var n = nextInQueue(1); if (n) playEp(n); else toast("End of the queue.", 3000); return; }
     var p = (pod.currentTime || 0) > 5 ? null : nextInQueue(-1);
     if (p) playEp(p); else if (curEp) pod.currentTime = 0;
   }
-  // Fortschritt gehört zur Folge, deren Quelle geladen ist. Nicht speichern, solange
-  //  - die Folge zu Ende gehört wurde (sie behält keine Position) oder
-  //  - die gespeicherte Startposition noch nicht angewendet ist (currentTime ist dann noch 0).
+  // Progress belongs to the episode whose source is loaded. Do not save while
+  //  - the episode was listened to the end (it keeps no position) or
+  //  - the saved start position is not applied yet (currentTime is still 0).
   function savePos() {
     if (!srcEp || pod.ended || pendingSeek > 0) return;
     loadProgress(); pos[srcEp.id] = Math.floor(pod.currentTime || 0); store.set("pos", pos); lastSave = Date.now();
@@ -1214,7 +1238,7 @@ body.pod .seekrow { display: flex; }
   }
   function podMedia() {
     if (!("mediaSession" in navigator) || !curEp) return;
-    try { navigator.mediaSession.metadata = new MediaMetadata({ title: curEp.title, artist: curEp.show, album: curEp.kind === "book" ? "Hörbuch" : "Podcast", artwork: curEp.art ? [{ src: curEp.art }] : [] }); } catch (e) {}
+    try { navigator.mediaSession.metadata = new MediaMetadata({ title: curEp.title, artist: curEp.show, album: curEp.kind === "book" ? "Audiobook" : "Podcast", artwork: curEp.art ? [{ src: curEp.art }] : [] }); } catch (e) {}
   }
 
   pod.addEventListener("loadedmetadata", function () {
@@ -1224,8 +1248,8 @@ body.pod .seekrow { display: flex; }
   });
   pod.addEventListener("durationchange", seekUi);
   pod.addEventListener("timeupdate", function () { seekUi(); if (Date.now() - lastSave > 5000) savePos(); });
-  // Zustand für Sperrbildschirm/Medientasten. Überall setzen, wo die Wiedergabe ohne "pause"-Ereignis endet (abgebrochener Start, Fehler, Ende,
-  // Zurücksetzen): sonst bliebe dort "playing" stehen und der Sperrbildschirm böte weiter Pause statt Play an. Nur im Datei-Modus, sonst gehört er dem Radio.
+  // State for the lock screen / media keys. Set it everywhere playback ends without a "pause" event (aborted start, error, end,
+  // reset): otherwise "playing" would stay and the lock screen would keep offering pause instead of play. Only in file mode, otherwise the radio owns it.
   function podMs(state) { if (mode === "pod" && "mediaSession" in navigator) try { navigator.mediaSession.playbackState = state; } catch (e) {} }
   pod.addEventListener("playing", function () {
     if (mode !== "pod") return;
@@ -1234,32 +1258,32 @@ body.pod .seekrow { display: flex; }
     syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("pause", function () {
-    if (mode !== "pod" || pod.ended || !pod.paused || curEp !== srcEp) return;   // Quelle wird gerade gewechselt
+    if (mode !== "pod" || pod.ended || !pod.paused || curEp !== srcEp) return;   // the source is being switched right now
     podWant = false; savePos();
     podMs("paused");
     syncPlayIcon(); refreshPod();
   });
-  pod.addEventListener("waiting", function () { if (podWant && mode === "pod") podStatus("Puffert …", false); });
+  pod.addEventListener("waiting", function () { if (podWant && mode === "pod") podStatus("Buffering …", false); });
   pod.addEventListener("error", function () {
     if (mode !== "pod" || !curEp || curEp !== srcEp || !pod.getAttribute("src")) return;
-    if (!rawTried && /^http:\/\//i.test(curEp.url) && pod.src !== curEp.url && !/^blob:/.test(pod.src)) {   // https-Variante fehlt: Original versuchen
+    if (!rawTried && /^http:\/\//i.test(curEp.url) && pod.src !== curEp.url && !/^blob:/.test(pod.src)) {   // https variant is missing: try the original
       rawTried = true; pod.src = curEp.url; pod.play().catch(function () {}); return;
     }
-    podWant = false; podMs("paused"); podStatus(curEp.kind === "book" ? "Datei nicht abspielbar." : "Folge nicht abspielbar. Versuche eine andere.", true); syncPlayIcon(); refreshPod();
+    podWant = false; podMs("paused"); podStatus(curEp.kind === "book" ? "The file cannot be played." : "The episode cannot be played. Try another one.", true); syncPlayIcon(); refreshPod();
   });
   pod.addEventListener("ended", function () {
     if (mode !== "pod" || !curEp || curEp !== srcEp) return;
     loadProgress(); delete pos[curEp.id]; done[curEp.id] = 1; store.set("pos", pos); store.set("done", done);
     podWant = false;
     var isBook = curEp.kind === "book", n = isBook ? bookNeighbor(curEp, 1) : nextInQueue(1);
-    if (n) playEp(n); else { podMs("paused"); if (isBook) toast("Ende des Buchs.", 4000); syncPlayIcon(); refreshPod(); }
+    if (n) playEp(n); else { podMs("paused"); if (isBook) toast("End of the book.", 4000); syncPlayIcon(); refreshPod(); }
   });
-  window.addEventListener("pagehide", savePos);       // Fortschritt auch beim Schließen der Seite sichern
+  window.addEventListener("pagehide", savePos);       // also save the progress when the page is closed
 
   seekEl.addEventListener("input", function () { if (curEp) { pod.currentTime = +seekEl.value; seekUi(); } });
   $("back15").addEventListener("click", function () { podSeek(-15); });
   $("fwd30").addEventListener("click", function () { podSeek(30); });
-  function applyRate() { pod.playbackRate = rate; pod.defaultPlaybackRate = rate; $("rate").textContent = String(rate).replace(".", ",") + "×"; }
+  function applyRate() { pod.playbackRate = rate; pod.defaultPlaybackRate = rate; $("rate").textContent = String(rate) + "×"; }
   $("rate").addEventListener("click", function () {
     var i = RATES.indexOf(rate); rate = RATES[(i + 1) % RATES.length]; store.set("rate", rate); applyRate();
   });
@@ -1268,7 +1292,7 @@ body.pod .seekrow { display: flex; }
   vol.addEventListener("input", function () { pod.volume = audio.volume; });
   $("mute").addEventListener("click", function () { pod.volume = audio.volume; });
 
-  /* -- Bedienung -- */
+  /* -- Controls -- */
   podTabs.addEventListener("click", function (e) {
     var b = e.target.closest("[data-ptab]"); if (!b) return;
     podTab = b.getAttribute("data-ptab"); openShow = null; renderPod();
@@ -1307,31 +1331,31 @@ body.pod .seekrow { display: flex; }
   }
   $("modes").addEventListener("click", function (e) { var b = e.target.closest("[data-mode]"); if (b) setView(b.getAttribute("data-mode")); });
 
-  /* ---------- Hörbücher ---------- */
-  // Ein Buch = ein Ordner mit Audiodateien. Die Dateien liegen als Kopie in IndexedDB (Schlüssel "<Buch-ID>/<Titel-ID>"),
-  // Reihenfolge, gehört-Status und Position im localStorage. Wiedergabe über denselben Datei-Player wie die Podcasts.
+  /* ---------- Audiobooks ---------- */
+  // A book = a folder of audio files. The files are stored as a copy in IndexedDB (key "<book ID>/<track ID>"),
+  // order, heard state and position in localStorage. Playback uses the same file player as the podcasts.
   var books = store.get("books", []);
   if (!Array.isArray(books)) books = [];
   books = books.filter(function (b) { return b && b.id && Array.isArray(b.tracks); });
-  var openBookId = null, importing = null, dragTid = null, bookAdd = null;       // bookAdd: { id } beim Hinzufügen zu einem bestehenden Buch
+  var openBookId = null, importing = null, dragTid = null, bookAdd = null;       // bookAdd: { id } when adding to an existing book
   var bookBody = $("bookBody");
   var AUDIO_RE = /\.(mp3|m4a|m4b|aac|ogg|oga|opus|wav|flac)$/i;
   var BOOK_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5C6.5 4.3 9.5 4.5 12 6.2c2.5-1.7 5.5-1.9 8-.7V19c-2.5-1.2-5.5-1-8 .7-2.5-1.7-5.5-1.9-8-.7z"/><path d="M12 6.2v13.5"/></svg>';
-  var SORTS = [["name", "Name A–Z (1, 2, 10)"], ["name-desc", "Name Z–A"], ["date", "Datum: älteste zuerst"], ["date-desc", "Datum: neueste zuerst"],
-    ["size-desc", "Größe: größte zuerst"], ["size", "Größe: kleinste zuerst"], ["reverse", "Reihenfolge umkehren"], ["orig", "Ausgangsreihenfolge"]];
+  var SORTS = [["name", "Name A–Z (1, 2, 10)"], ["name-desc", "Name Z–A"], ["date", "Date: oldest first"], ["date-desc", "Date: newest first"],
+    ["size-desc", "Size: largest first"], ["size", "Size: smallest first"], ["reverse", "Reverse the order"], ["orig", "Original order"]];
 
   function saveBooks() { store.set("books", books); }
-  // Kleine Änderungen (Reihenfolge, Name, aktuelles Kapitel) auf den frisch geladenen Stand anwenden, nicht die Liste dieses Tabs zurückschreiben:
-  // sonst ginge ein inzwischen in einem anderen Tab hinzugefügtes Buch verloren (seine Dateien blieben ohne Eintrag im Speicher).
+  // Apply small changes (order, name, current chapter) to the freshly loaded state instead of writing this tab's list back:
+  // otherwise a book added in another tab in the meantime would be lost (its files would stay in storage without an entry).
   function patchBook(id, fn) { books = loadList("books", "tracks"); var b = findBook(id); if (b) { fn(b); saveBooks(); } return b; }
-  // Hilfen gegen veraltete Daten und gefährliche Namen. Importierte Namen (Dateien, Ordner, Überschriften) dürfen nie Objekt-Eigenschaften treffen.
-  function emptyMap() { return Object.create(null); }                 // Wörterbuch ohne Prototyp: "constructor" oder "__proto__" sind gewöhnliche Schlüssel
+  // Helpers against stale data and dangerous names. Imported names (files, folders, headings) must never hit object properties.
+  function emptyMap() { return Object.create(null); }                 // dictionary without a prototype: "constructor" or "__proto__" are ordinary keys
   function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
-  function loadList(key, field) {                                     // frisch aus dem Speicher: ein anderer Tab hat inzwischen vielleicht gespeichert
+  function loadList(key, field) {                                     // fresh from storage: another tab may have saved in the meantime
     var l = store.get(key, []);
     return Array.isArray(l) ? l.filter(function (x) { return x && x.id && Array.isArray(x[field]); }) : [];
   }
-  function nextKey(items) { var n = 0; items.forEach(function (f) { n = Math.max(n, (+String(f.id).slice(1) || 0) + 1); }); return n; }   // nächste freie Dateinummer
+  function nextKey(items) { var n = 0; items.forEach(function (f) { n = Math.max(n, (+String(f.id).slice(1) || 0) + 1); }); return n; }   // next free file number
   function goneError() { var e = new Error("gone"); e.gone = true; return e; }
   function dropList(keys) { return keys.length ? idbDo("readwrite", function (os) { keys.forEach(function (k) { os["delete"](k); }); }) : Promise.resolve(); }
   function findBook(id) { for (var i = 0; i < books.length; i++) if (books[i].id === id) return books[i]; return null; }
@@ -1352,7 +1376,7 @@ body.pod .seekrow { display: flex; }
     return b.tracks[0] || null;
   }
 
-  /* -- Wiedergabe -- */
+  /* -- Playback -- */
   function bookSrc(ep) {
     return idbDo("readonly", function (os) { return os.get(ep.id); }).then(function (blob) {
       if (!blob) return "";
@@ -1372,7 +1396,7 @@ body.pod .seekrow { display: flex; }
     return null;
   }
   function bookSkip(dir) {
-    if (dir > 0) { var n = bookNeighbor(curEp, 1); if (n) playEp(n); else toast("Ende des Buchs.", 3000); return; }
+    if (dir > 0) { var n = bookNeighbor(curEp, 1); if (n) playEp(n); else toast("End of the book.", 3000); return; }
     var p = (pod.currentTime || 0) > 5 ? null : bookNeighbor(curEp, -1);
     if (p) playEp(p); else pod.currentTime = 0;
   }
@@ -1382,34 +1406,34 @@ body.pod .seekrow { display: flex; }
     var el = bookBody.querySelector('[data-trk="' + t.id + '"]');
     if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
   }
-  function clearSrc() {                                   // geladene Quelle verwerfen, damit nichts Altes weiterspielt oder gespeichert wird
+  function clearSrc() {                                   // drop the loaded source so that nothing old keeps playing or gets saved
     pod.pause(); pod.removeAttribute("src"); try { pod.load(); } catch (e) {}
     srcEp = null; pendingSeek = 0;
-    if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }      // die Kopie der Datei nicht bis zum Schließen der Seite im Speicher halten
+    if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }      // do not keep the file copy in memory until the page is closed
   }
-  function podReset() {                                   // Player leeren, z. B. wenn das laufende Buch gelöscht oder zurückgesetzt wird
+  function podReset() {                                   // empty the player, e.g. when the running book is deleted or reset
     playReq++; clearSrc();
     podWant = false; curEp = null;
-    if (mode !== "pod") return;                           // das Radio belegt den Player/Dock: nur die alte Buch-Quelle lösen, Dock nicht anfassen
-    podMs("none");                                        // nichts mehr geladen
-    $("dockT").textContent = "Kein Sender gewählt"; podStatus("Werbefrei Radio", false); syncPlayIcon();
+    if (mode !== "pod") return;                           // the radio occupies the player/dock: only release the old book source, do not touch the dock
+    podMs("none");                                        // nothing loaded any more
+    $("dockT").textContent = "No station selected"; podStatus("Technolovers Radio", false); syncPlayIcon();
   }
 
-  /* -- Hinzufügen -- */
-  // Während eines Imports steht ein Marker "tl_pending" im localStorage ({ id, n, ts }). Bricht der Import ab (Tab geschlossen, Seite neu
-  // geladen), liegen schon Dateien im Speicher, aber noch kein Buch in der Bibliothek: beim nächsten Start werden sie entfernt.
-  // Ob ein Import noch läuft, zeigt eine exklusive Web-Lock "tl-import-<id>": sie hält der importierende Tab und der Browser gibt sie
-  // beim Schließen oder Absturz selbst frei. (Alter des Markers oder sessionStorage sagen darüber nichts, ein duplizierter Tab erbt z. B. beides.)
-  // Ohne Web Locks wird nur ein sehr alter Marker aufgeräumt.
+  /* -- Adding -- */
+  // During an import there is a marker "tl_pending" in localStorage ({ id, n, ts }). If the import aborts (tab closed, page
+  // reloaded), files are already in storage but there is no book in the library yet: they are removed on the next start.
+  // Whether an import is still running is shown by an exclusive Web Lock "tl-import-<id>": the importing tab holds it and the browser releases it
+  // itself on close or crash. (The age of the marker or sessionStorage say nothing about it, a duplicated tab inherits both, for example.)
+  // Without Web Locks only a very old marker is cleaned up.
   var PENDING_STALE = 600000;
   var hasLocks = !!(navigator.locks && navigator.locks.request);
-  function withImportLock(id, work) {                    // gibt immer ein Promise zurück (auch ohne Web Locks, dann läuft work sofort)
+  function withImportLock(id, work) {                    // always returns a promise (also without Web Locks, then work runs at once)
     if (hasLocks) return navigator.locks.request("tl-import-" + id, function () { return work(); });
     try { return Promise.resolve(work()); } catch (e) { return Promise.reject(e); }
   }
-  // from: nur beim Hinzufügen zu einem bestehenden Notizordner: erste neue Datei-Nummer (die schon gespeicherten Dateien bleiben unberührt)
+  // from: only when adding to an existing notes folder: first new file number (files that are already saved stay untouched)
   function setPending(b, n, from) {
-    var m = { id: b.id, n: n, ts: Date.now(), lk: hasLocks ? 1 : 0 };    // lk: der Import hält eine Web Lock
+    var m = { id: b.id, n: n, ts: Date.now(), lk: hasLocks ? 1 : 0 };    // lk: the import holds a Web Lock
     if (from != null) m.from = from;
     store.set("pending", m);
   }
@@ -1417,7 +1441,7 @@ body.pod .seekrow { display: flex; }
     var a = from || 0;
     return idbDo("readwrite", function (os) { for (var i = a; i < a + n; i++) if (!(keep && keep["k" + i])) os.delete(id + "/k" + i); });
   }
-  function savedEntry(id) {                               // gespeichertes Buch oder gespeicherter Notizordner mit dieser ID (oder null)
+  function savedEntry(id) {                               // saved book or saved notes folder with this ID (or null)
     var hit = null;
     ["books", "vaults"].forEach(function (k) { var l = store.get(k, []); if (Array.isArray(l)) l.forEach(function (b) { if (b && b.id === id) hit = b; }); });
     return hit;
@@ -1425,37 +1449,37 @@ body.pod .seekrow { display: flex; }
   function reclaimPending() {
     var p = store.get("pending", null);
     if (!p || !p.id) return;
-    function sweep() {                                    // nur aufrufen, wenn kein Import mehr aktiv ist; prüft den Zustand erneut
+    function sweep() {                                    // only call when no import is active any more; checks the state again
       var c = store.get("pending", null);
-      if (!c || c.id !== p.id) return null;                                      // Marker inzwischen entfernt oder ersetzt
+      if (!c || c.id !== p.id) return null;                                      // marker was removed or replaced in the meantime
       var e = savedEntry(p.id);
-      if (e && p.from == null) { store.set("pending", null); return null; }      // Import war fertig, nur der Marker blieb
+      if (e && p.from == null) { store.set("pending", null); return null; }      // the import was finished, only the marker stayed
       var keep = null;
-      if (e) { keep = {}; (e.files || e.tracks || []).forEach(function (f) { keep[f.id] = 1; }); }   // Hinzufügen unterbrochen: nur nicht eingetragene neue Dateien entfernen
+      if (e) { keep = {}; (e.files || e.tracks || []).forEach(function (f) { keep[f.id] = 1; }); }   // adding was interrupted: only remove new files that are not registered
       return dropKeys(p.id, p.n || 0, p.from, keep).then(function () {
         var d = store.get("pending", null); if (d && d.id === p.id) store.set("pending", null);
-      }, function () {});                                                        // Marker bleibt, der nächste Start versucht es erneut
+      }, function () {});                                                        // the marker stays, the next start tries again
     }
-    // Nur ein Marker mit lk wurde unter einer Web Lock geschrieben: dort beweist eine freie Lock, dass der Import beendet ist. Marker ohne lk stammen
-    // von einer älteren Version (kein Lock, z. B. in einem noch offenen Tab) oder aus einem Browser ohne Web Locks: eine freie Lock sagt darüber nichts,
-    // also nur sehr alte Marker aufräumen (ts wird bei jeder kopierten Datei erneuert).
+    // Only a marker with lk was written under a Web Lock: there a free lock proves that the import has ended. Markers without lk come
+    // from an older version (no lock, e.g. in a tab that is still open) or from a browser without Web Locks: a free lock says nothing about them,
+    // so only clean up very old markers (ts is renewed with every copied file).
     if (p.lk && hasLocks) navigator.locks.request("tl-import-" + p.id, { ifAvailable: true }, function (lock) { return lock ? sweep() : null; }).catch(function () {});
     else if (Date.now() - (p.ts || 0) > PENDING_STALE) sweep();
   }
 
-  function bookItems(fileList) {                          // Audiodateien in natürlicher Reihenfolge, mit Kapitelname
+  function bookItems(fileList) {                          // audio files in natural order, with chapter name
     return Array.prototype.slice.call(fileList).filter(function (f) { return AUDIO_RE.test(f.name) || /^audio\//.test(f.type || ""); }).map(function (f) {
       var rel = f.webkitRelativePath || f.name, parts = rel.split("/");
-      if (f.webkitRelativePath) parts.shift();            // der Ordnername steht schon im Buchtitel
+      if (f.webkitRelativePath) parts.shift();            // the folder name is already in the book title
       return { f: f, rel: rel, name: parts.join(" / ").replace(AUDIO_RE, ""), size: f.size, mod: f.lastModified || 0 };
     }).sort(function (a, b) { return natCmp(a.rel, b.rel); });
   }
   function importFiles(fileList, forcedName) {
     var items = bookItems(fileList);
-    if (!items.length) { toast("Keine Audiodateien gefunden."); return; }
-    if (importing) { toast("Es wird gerade schon ein Buch hinzugefügt."); return; }
-    var name = forcedName || (items[0].f.webkitRelativePath || "").split("/")[0] || "Neues Buch";
-    if (books.some(function (b) { return b.name === name && b.tracks.length === items.length; })) { toast("„" + esc(name) + "“ ist schon vorhanden.", 5000); return; }
+    if (!items.length) { toast("No audio files found."); return; }
+    if (importing) { toast("A book is already being added."); return; }
+    var name = forcedName || (items[0].f.webkitRelativePath || "").split("/")[0] || "New book";
+    if (books.some(function (b) { return b.name === name && b.tracks.length === items.length; })) { toast("\"" + esc(name) + "\" already exists.", 5000); return; }
 
     var b = { id: "b" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, created: Date.now(), cur: null, tracks: [] };
     importing = { name: name, done: 0, total: items.length }; openBookId = null; renderBook();
@@ -1470,33 +1494,33 @@ body.pod .seekrow { display: flex; }
       })(0);
     }
     withImportLock(b.id, function () {
-      setPending(b, items.length);                        // erst nach der Lock und vor der ersten Datei: so ist jede Kopie auffindbar
+      setPending(b, items.length);                        // only after the lock and before the first file: that way every copy can be found
       return Promise.resolve(copyAll()).then(function () {
-        books = loadList("books", "tracks"); books.push(b); saveBooks(); store.set("pending", null);      // frischer Stand: ein anderer Tab hat evtl. Bücher gespeichert
-      }, function (err) {                                 // Fehlschlag: schon kopierte Dateien noch unter der Lock wieder entfernen
+        books = loadList("books", "tracks"); books.push(b); saveBooks(); store.set("pending", null);      // fresh state: another tab may have saved books
+      }, function (err) {                                 // failure: remove the files that were already copied, still under the lock
         return dropKeys(b.id, items.length).then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
       });
     }).then(function () {
       importing = null; openBookId = b.id; renderBook();
     }, function () {
-      importing = null; toast("Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook();
+      importing = null; toast("Adding failed. Is the storage full?", 8000); renderBook();
     });
   }
-  // Kapitel zu einem bestehenden Buch hinzufügen (ans Ende; Reihenfolge ändern geht danach wie gewohnt). Schon vorhandene Pfade werden übersprungen,
-  // so kann man denselben Ordner nach neuen Dateien erneut wählen. Neue Schlüssel ab "start": der Marker nennt den Bereich (siehe reclaimPending).
-  // Alles Entscheidende (welche Nummern frei sind, was schon im Buch ist) wird erst unter der Lock aus dem gespeicherten Stand berechnet:
-  // dieselbe Seite in einem zweiten Tab kann inzwischen schon Kapitel angehängt haben.
+  // Add chapters to an existing book (at the end; changing the order works as usual afterwards). Paths that are already there are skipped,
+  // so you can pick the same folder again to add new files. New keys start at "start": the marker names the range (see reclaimPending).
+  // Everything that matters (which numbers are free, what is already in the book) is only computed under the lock from the saved state:
+  // the same page in a second tab may have appended chapters in the meantime.
   function addToBook(b0, fileList) {
     var items = bookItems(fileList);
-    if (!items.length) { toast("Keine Audiodateien gefunden."); return; }
-    if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
+    if (!items.length) { toast("No audio files found."); return; }
+    if (importing) { toast("Something is already being added.", 4000); return; }
     var work = [], start = 0, skipped = 0;
     importing = { name: b0.name, done: 0, total: items.length }; renderBook();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
     function copyAll() {
       return (function step(i) {
         if (i >= work.length) return null;
-        if (!savedEntry(b0.id)) throw goneError();           // Buch gelöscht (z. B. in einem Tab ohne Web Locks): nicht weiterschreiben
+        if (!savedEntry(b0.id)) throw goneError();           // book deleted (e.g. in a tab without Web Locks): stop writing
         return idbDo("readwrite", function (os) { return os.put(work[i].it.f, fid(b0, work[i].t)); }).then(function () {
           importing.done = i + 1; setPending(b0, work.length, start); renderBook(); return step(i + 1);
         });
@@ -1518,7 +1542,7 @@ body.pod .seekrow { display: flex; }
       importing.total = work.length; renderBook();
       setPending(b, work.length, start);
       return Promise.resolve(copyAll()).then(function () {
-        books = loadList("books", "tracks");                  // und noch einmal frisch: nichts überschreiben, was inzwischen gespeichert wurde
+        books = loadList("books", "tracks");                  // and fresh once more: do not overwrite anything saved in the meantime
         var cur = findBook(b0.id);
         if (!cur) throw goneError();
         work.forEach(function (w) { cur.tracks.push(w.t); });
@@ -1528,16 +1552,16 @@ body.pod .seekrow { display: flex; }
       });
     }).then(function () {
       importing = null;
-      toast(work.length ? work.length + " neu zu „" + esc(b0.name) + "“" + (skipped ? ", " + skipped + " schon vorhanden" : "") + "." : "Alle Dateien sind schon im Buch.", 4000);
+      toast(work.length ? work.length + " new in \"" + esc(b0.name) + "\"" + (skipped ? ", " + skipped + " already there" : "") + "." : "All files are already in the book.", 4000);
       renderBook();
     }, function (err) {
-      importing = null; toast(err && err.gone ? "Das Buch wurde währenddessen gelöscht." : "Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderBook();
+      importing = null; toast(err && err.gone ? "The book was deleted in the meantime." : "Adding failed. Is the storage full?", 8000); renderBook();
     });
   }
-  // Löschen läuft unter derselben Lock wie Importe und Anhängen: so kann es nicht zwischen deren einzelne Schreibvorgänge geraten
+  // Deleting runs under the same lock as imports and appending: so it cannot slip in between their individual writes
   function deleteBook(b0) {
-    if (!confirm("„" + b0.name + "“ und alle gespeicherten Dateien löschen?")) return;
-    if (importing) toast("Wird gelöscht, sobald das laufende Hinzufügen fertig ist.", 4000);
+    if (!confirm("Delete \"" + b0.name + "\" and all saved files?")) return;
+    if (importing) toast("It will be deleted as soon as the current adding is done.", 4000);
     withImportLock(b0.id, function () {
       books = loadList("books", "tracks");
       var b = findBook(b0.id); if (!b) return null;
@@ -1545,16 +1569,16 @@ body.pod .seekrow { display: flex; }
       return dropKeys(b.id, nextKey(b.tracks)).then(function () {
         loadProgress(); b.tracks.forEach(function (t) { delete pos[fid(b, t)]; delete done[fid(b, t)]; });
         store.set("pos", pos); store.set("done", done);
-        // frisch laden und nach ID entfernen: ein paralleler Vorgang hat die Liste inzwischen neu geladen, das Objekt b gehört zum alten Stand
+        // load fresh and remove by ID: a parallel operation has reloaded the list in the meantime, the object b belongs to the old state
         books = loadList("books", "tracks").filter(function (x) { return x.id !== b.id; }); saveBooks();
       });
     }).then(function () {
       if (openBookId === b0.id) openBookId = null;
       renderBook();
-    }, function () { toast("Löschen fehlgeschlagen.", 5000); });
+    }, function () { toast("Deleting failed.", 5000); });
   }
 
-  /* -- Reihenfolge -- */
+  /* -- Order -- */
   function sortBook(b, how) {
     var byName = function (x, y) { return natCmp(x.path, y.path); };
     var fn = {
@@ -1582,59 +1606,59 @@ body.pod .seekrow { display: flex; }
     renderBook();
   }
 
-  /* -- Ansichten -- */
+  /* -- Views -- */
   function bookCard(b) {
     var st = bookStats(b), playing = isPlayingBook(b);
     return '<div class="pod-row bk' + (st.fin ? " finished" : "") + '"><div class="bk-icon">' + BOOK_SVG + '</div><div class="pod-tx"><div class="pod-ti">' + esc(b.name) + '</div><div class="pod-meta">' +
-      st.c + " von " + st.n + " Kapiteln · " + fmtSize(st.size) + (st.fin ? " · ✓ fertig" : "") + '</div><div class="bar"><i style="width:' + st.pct + '%"></i></div></div><div class="pod-act">' +
-      pb("bresume", b.id, playing ? "Pause" : (b.cur ? "Weiter" : "Abspielen"), true) + pb("bopen", b.id, "Öffnen") + ab("bdel", b.id, sv(P.trash), "Buch löschen") + "</div></div>";
+      st.c + " of " + cnt(st.n, "chapter") + " · " + fmtSize(st.size) + (st.fin ? " · ✓ done" : "") + '</div><div class="bar"><i style="width:' + st.pct + '%"></i></div></div><div class="pod-act">' +
+      pb("bresume", b.id, playing ? "Pause" : (b.cur ? "Continue" : "Play"), true) + pb("bopen", b.id, "Open") + ab("bdel", b.id, sv(P.trash), "Delete book") + "</div></div>";
   }
   function trkRow(b, t, i) {
     var id = fid(b, t), isCur = !!curEp && curEp.id === id && mode === "pod", now = isCur && podWant, isDone = !!done[id];
     var meta = [fmtSize(t.size || 0)];
-    if (isDone) meta.push("✓ gehört"); else if (pos[id] > 10) meta.push("bei " + fmtT(pos[id]));
+    if (isDone) meta.push("✓ heard"); else if (pos[id] > 10) meta.push("at " + fmtT(pos[id]));
     return '<div class="pod-row trk' + (isCur ? " cur" : "") + (isDone ? " done" : "") + '" draggable="true" data-trk="' + esc(t.id) + '"><div class="no">' + (isDone ? sv(P.ok) : i + 1) + '</div>' +
       '<div class="pod-tx"><div class="pod-ti">' + esc(t.name) + '</div><div class="pod-meta">' + meta.join(" · ") + '</div></div><div class="pod-act">' +
-      ab("tplay", t.id, sv(now ? P.pause : P.play, true), now ? "Pause" : "Abspielen") +
-      ab("tdone", t.id, sv(P.ok), isDone ? "Als ungehört markieren" : "Als gehört markieren", isDone) +
-      ab("tup", t.id, sv(P.up), "Nach oben") + ab("tdown", t.id, sv(P.down), "Nach unten") + "</div></div>";
+      ab("tplay", t.id, sv(now ? P.pause : P.play, true), now ? "Pause" : "Play") +
+      ab("tdone", t.id, sv(P.ok), isDone ? "Mark as unheard" : "Mark as heard", isDone) +
+      ab("tup", t.id, sv(P.up), "Move up") + ab("tdown", t.id, sv(P.down), "Move down") + "</div></div>";
   }
   function renderBook() {
     var b = openBookId ? findBook(openBookId) : null;
     if (b) { renderBookDetail(b); return; }
     openBookId = null;
     var total = books.reduce(function (n, x) { return n + bookStats(x).size; }, 0);
-    var html = '<div class="kinds">' + pb("bookadd", "0", "Ordner hinzufügen", true) + pb("bookfiles", "0", "Einzelne Dateien") + "</div>";
-    if (importing && importing.kind !== "vault") html += '<div class="pod-row bk"><div class="bk-icon">' + BOOK_SVG + '</div><div class="pod-tx"><div class="pod-ti">' + esc(importing.name) + '</div><div class="pod-meta">Wird gespeichert … ' +
-      importing.done + " von " + importing.total + '</div><div class="bar"><i style="width:' + Math.round(importing.done / importing.total * 100) + '%"></i></div></div></div>';
-    if (!books.length && !(importing && importing.kind !== "vault")) html += empty("Noch keine Bücher. Wähle einen Ordner mit Audiodateien, zum Beispiel mit 30 MP3-Dateien. Unterordner werden mitgelesen.");
-    else if (books.length) html += '<div class="pod-sec"><span>' + books.length + " Bücher · " + fmtSize(total) + '</span></div><div class="pod-list">' + books.map(bookCard).join("") + "</div>";
+    var html = '<div class="kinds">' + pb("bookadd", "0", "Add folder", true) + pb("bookfiles", "0", "Single files") + "</div>";
+    if (importing && importing.kind !== "vault") html += '<div class="pod-row bk"><div class="bk-icon">' + BOOK_SVG + '</div><div class="pod-tx"><div class="pod-ti">' + esc(importing.name) + '</div><div class="pod-meta">Saving … ' +
+      importing.done + " of " + importing.total + '</div><div class="bar"><i style="width:' + Math.round(importing.done / importing.total * 100) + '%"></i></div></div></div>';
+    if (!books.length && !(importing && importing.kind !== "vault")) html += empty("No books yet. Pick a folder of audio files, for example one with 30 MP3 files. Subfolders are included.");
+    else if (books.length) html += '<div class="pod-sec"><span>' + cnt(books.length, "book") + " · " + fmtSize(total) + '</span></div><div class="pod-list">' + books.map(bookCard).join("") + "</div>";
     bookBody.innerHTML = html;
   }
   function renderBookDetail(b) {
     var st = bookStats(b), playing = isPlayingBook(b);
-    var sel = '<select class="pbtn" id="bookSort" aria-label="Sortieren"><option value="">Sortieren …</option>' + SORTS.map(function (x) { return '<option value="' + x[0] + '">' + x[1] + "</option>"; }).join("") + "</select>";
-    bookBody.innerHTML = '<div class="back-row">' + pb("bback", "0", "← Bücher") + '</div><div class="show-head"><div class="bk-icon big">' + BOOK_SVG + '</div><div class="tx"><h2>' + esc(b.name) + "</h2><p>" +
-      st.c + " von " + st.n + " Kapiteln · " + fmtSize(st.size) + (st.fin ? " · ✓ fertig" : "") + '</p><div class="bar"><i style="width:' + st.pct + '%"></i></div></div></div>' +
-      '<div class="kinds">' + pb("bresume", b.id, playing ? "Pause" : (b.cur ? "Weiter" : "Abspielen"), true) + sel + pb("baddfiles", b.id, "Dateien hinzufügen") + pb("badddir", b.id, "Ordner hinzufügen") + pb("brename", b.id, "Umbenennen") + pb("bdone", b.id, "Alle gehört") + pb("breset", b.id, "Zurücksetzen") + pb("bdel", b.id, "Löschen") + "</div>" +
-      (importing && importing.kind !== "vault" ? '<div class="hint" style="margin:0 2px 10px">Wird hinzugefügt … ' + importing.done + " von " + importing.total + "</div>" : "") +
-      '<div class="hint" style="margin:0 2px 10px">Reihenfolge: Zeilen ziehen oder die Pfeile benutzen.</div><div class="pod-list">' + b.tracks.map(function (t, i) { return trkRow(b, t, i); }).join("") + "</div>";
+    var sel = '<select class="pbtn" id="bookSort" aria-label="Sort"><option value="">Sort …</option>' + SORTS.map(function (x) { return '<option value="' + x[0] + '">' + x[1] + "</option>"; }).join("") + "</select>";
+    bookBody.innerHTML = '<div class="back-row">' + pb("bback", "0", "← Books") + '</div><div class="show-head"><div class="bk-icon big">' + BOOK_SVG + '</div><div class="tx"><h2>' + esc(b.name) + "</h2><p>" +
+      st.c + " of " + cnt(st.n, "chapter") + " · " + fmtSize(st.size) + (st.fin ? " · ✓ done" : "") + '</p><div class="bar"><i style="width:' + st.pct + '%"></i></div></div></div>' +
+      '<div class="kinds">' + pb("bresume", b.id, playing ? "Pause" : (b.cur ? "Continue" : "Play"), true) + sel + pb("baddfiles", b.id, "Add files") + pb("badddir", b.id, "Add folder") + pb("brename", b.id, "Rename") + pb("bdone", b.id, "All heard") + pb("breset", b.id, "Reset") + pb("bdel", b.id, "Delete") + "</div>" +
+      (importing && importing.kind !== "vault" ? '<div class="hint" style="margin:0 2px 10px">Adding … ' + importing.done + " of " + importing.total + "</div>" : "") +
+      '<div class="hint" style="margin:0 2px 10px">Order: drag the rows or use the arrows.</div><div class="pod-list">' + b.tracks.map(function (t, i) { return trkRow(b, t, i); }).join("") + "</div>";
   }
 
-  /* -- Bedienung -- */
+  /* -- Controls -- */
   $("pickDir").addEventListener("change", function (e) {
     var files = Array.prototype.slice.call(e.target.files), add = bookAdd; bookAdd = null; e.target.value = "";
     if (!files.length) return;
     if (add) addToBookOrSay(add.id, files); else importFiles(files);
   });
-  // Ziel inzwischen gelöscht (z. B. in einem anderen Tab): nicht stillschweigend als neues Buch anlegen
-  function addToBookOrSay(id, files) { var b = findBook(id); if (b) addToBook(b, files); else toast("Das Buch gibt es nicht mehr.", 5000); }
+  // target was deleted in the meantime (e.g. in another tab): do not silently create a new book
+  function addToBookOrSay(id, files) { var b = findBook(id); if (b) addToBook(b, files); else toast("The book no longer exists.", 5000); }
   $("pickFiles").addEventListener("change", function (e) {
     if (!e.target.files.length) return;
     var files = Array.prototype.slice.call(e.target.files), add = bookAdd; bookAdd = null; e.target.value = "";
     if (add) { addToBookOrSay(add.id, files); return; }
-    var n = prompt("Name des Buchs:", "Neues Buch");
-    if (n !== null) importFiles(files, n.trim() || "Neues Buch");
+    var n = prompt("Book name:", "New book");
+    if (n !== null) importFiles(files, n.trim() || "New book");
   });
   bookBody.addEventListener("change", function (e) {
     if (e.target.id !== "bookSort") return;
@@ -1657,22 +1681,22 @@ body.pod .seekrow { display: flex; }
     else if (act === "baddfiles") { bookAdd = { id: b.id }; $("pickFiles").click(); }
     else if (act === "badddir") { bookAdd = { id: b.id }; $("pickDir").click(); }
     else if (act === "bdel") deleteBook(b);
-    else if (act === "brename") { var n = prompt("Name des Buchs:", b.name); if (n && n.trim()) { patchBook(b.id, function (x) { x.name = n.trim(); }); renderBook(); } }
+    else if (act === "brename") { var n = prompt("Book name:", b.name); if (n && n.trim()) { patchBook(b.id, function (x) { x.name = n.trim(); }); renderBook(); } }
     else if (act === "bdone" || act === "breset") {
-      if (curEp && curEp.bookId === b.id) podReset();     // geladenes Kapitel darf keine alte Position zurückschreiben oder fortsetzen
+      if (curEp && curEp.bookId === b.id) podReset();     // the loaded chapter must not write back or resume an old position
       loadProgress();
       b.tracks.forEach(function (x) { var k = fid(b, x); delete pos[k]; if (act === "bdone") done[k] = 1; else delete done[k]; });
       if (act === "breset") patchBook(b.id, function (x) { x.cur = null; });
       store.set("pos", pos); store.set("done", done); renderBook();
     }
     else if (act === "tplay" && tr) { if (curEp && curEp.id === fid(b, tr) && mode === "pod") podToggle(); else playBook(b, tr); }
-    // tut, was auf dem Knopf steht ("on" = als gehört angezeigt), nicht blind umschalten: hat ein anderer Tab das Kapitel inzwischen
-    // als gehört markiert, würde ein Umschalten genau das Gegenteil der angezeigten Aktion bewirken
+    // does what is written on the button ("on" = shown as heard), does not blindly toggle: if another tab has marked the chapter
+    // as heard in the meantime, toggling would do exactly the opposite of the displayed action
     else if (act === "tdone" && tr) { loadProgress(); var k = fid(b, tr); if (t.classList.contains("on")) delete done[k]; else { done[k] = 1; delete pos[k]; } store.set("pos", pos); store.set("done", done); renderBook(); }
     else if (act === "tup") moveTrack(b, id, -1);
     else if (act === "tdown") moveTrack(b, id, 1);
   });
-  // Ziehen zum Umsortieren
+  // Dragging to reorder
   bookBody.addEventListener("dragstart", function (e) {
     var r = e.target.closest && e.target.closest("[data-trk]"); if (!r) return;
     dragTid = r.getAttribute("data-trk"); r.classList.add("dragging");
@@ -1695,27 +1719,27 @@ body.pod .seekrow { display: flex; }
     Array.prototype.forEach.call(bookBody.querySelectorAll(".over, .dragging"), function (x) { x.classList.remove("over", "dragging"); });
   });
 
-  /* ---------- Notizen (Markdown lesen) ---------- */
-  // Nur Ansicht, wie die Vorschau in Obsidian oder VS Code. Ein "Vault" ist ein Ordner mit .md-Dateien (und Bildern). Die Dateien liegen als
-  // Kopie in IndexedDB (Schlüssel "<Vault-ID>/<Datei-ID>"), die Dateiliste im localStorage. Kleiner Markdown-Renderer ohne Abhängigkeiten:
-  // HTML aus den Notizen wird nie ausgeführt, jeder Text wird escaped; nur wenige harmlose Inline-Tags (kbd, sub, sup, mark, br ...) bleiben.
+  /* ---------- Notes (reading Markdown) ---------- */
+  // View only, like the preview in Obsidian or VS Code. A "vault" is a folder of .md files (and images). The files are stored as a
+  // copy in IndexedDB (key "<vault ID>/<file ID>"), the file list in localStorage. A small Markdown renderer without dependencies:
+  // HTML from the notes is never executed, all text is escaped; only a few harmless inline tags (kbd, sub, sup, mark, br ...) remain.
   var vaults = store.get("vaults", []);
   if (!Array.isArray(vaults)) vaults = [];
   vaults = vaults.filter(function (v) { return v && v.id && Array.isArray(v.files); });
-  var mdPos = obj(store.get("mdpos", {}));              // "<Vault-ID>/<Pfad>" -> Scrollposition
+  var mdPos = obj(store.get("mdpos", {}));              // "<vault ID>/<path>" -> scroll position
   var mdFs = Math.min(1.6, Math.max(.8, +store.get("mdfs", 1) || 1));
   var openVaultId = null, openNote = null, noteStack = [], vIdx = null, mdTexts = null, noteReq = 0, imgUrls = [];
-  var mdQuery = "", treeOpen = Object.create(null), scrollT = null, refreshId = null, addTarget = null, searchReq = 0;   // addTarget: { id, dir } beim Hinzufügen zu einem bestehenden Ordner
+  var mdQuery = "", treeOpen = Object.create(null), scrollT = null, refreshId = null, addTarget = null, searchReq = 0;   // addTarget: { id, dir } when adding to an existing folder
   var noteBody = $("noteBody");
   var MD_RE = /\.(md|markdown)$/i, MD_IMG = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i;
 
-  /* -- Hilfen -- */
+  /* -- Helpers -- */
   function unesc(s) { return String(s).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&"); }
   function slug(s) { return String(s).toLowerCase().replace(/[`*_~=\[\]]/g, "").replace(/[^\p{L}\p{N}\s_-]/gu, "").trim().replace(/\s+/g, "-"); }
   function saveVaults() { store.set("vaults", vaults); }
   function findVault(id) { for (var i = 0; i < vaults.length; i++) if (vaults[i].id === id) return vaults[i]; return null; }
-  function patchVault(id, fn) { vaults = loadList("vaults", "files"); var v = findVault(id); if (v) { fn(v); saveVaults(); } return v; }   // wie patchBook
-  function successorOf(id) {                             // Ordner, der diesen beim "Aktualisieren" ersetzt hat (oder null)
+  function patchVault(id, fn) { vaults = loadList("vaults", "files"); var v = findVault(id); if (v) { fn(v); saveVaults(); } return v; }   // like patchBook
+  function successorOf(id) {                             // folder that replaced this one on "Refresh" (or null)
     var s = null; vaults.forEach(function (x) { if (Array.isArray(x.replaces) && x.replaces.indexOf(id) >= 0) s = x; }); return s;
   }
   function loadMdPos() { mdPos = obj(store.get("mdpos", {})); }
@@ -1727,7 +1751,7 @@ body.pod .seekrow { display: flex; }
   }
   function noteTitle(path) { return path.split("/").pop().replace(MD_RE, ""); }
 
-  /* -- Code-Hervorhebung (klein und allgemein, keine Bibliothek) -- */
+  /* -- Code highlighting (small and generic, no library) -- */
   var KW = {
     js: "break case catch class const continue debugger default delete do else export extends finally for from function if import in instanceof let new of return static super switch this throw try typeof var void while with yield async await true false null undefined",
     py: "and as assert async await break class continue def del elif else except finally for from global if import in is lambda None nonlocal not or pass raise return try while with yield True False self print",
@@ -1800,10 +1824,10 @@ body.pod .seekrow { display: flex; }
   function codeBlock(code, lang) {
     var l = (lang || "").toLowerCase();
     return '<div class="codebox"><div class="chead">' + (l ? '<span class="lang">' + esc(l) + "</span>" : "<span></span>") +
-      '<button class="copy" type="button" data-copy aria-label="Code kopieren">Kopieren</button></div><pre class="code"><code>' + hl(code, l) + "</code></pre></div>";
+      '<button class="copy" type="button" data-copy aria-label="Copy code">Copy</button></div><pre class="code"><code>' + hl(code, l) + "</code></pre></div>";
   }
 
-  /* -- Markdown: Inline -- */
+  /* -- Markdown: inline -- */
   var CALLOUT = { note: 210, info: 210, todo: 210, abstract: 190, summary: 190, tldr: 190, tip: 170, hint: 170, important: 170, success: 140, check: 140, done: 140,
     question: 45, help: 45, faq: 45, warning: 32, caution: 32, attention: 32, failure: 0, fail: 0, missing: 0, danger: 350, error: 350, bug: 0, example: 265, quote: 215, cite: 215 };
   function mdInline(src, c) {
@@ -1811,7 +1835,7 @@ body.pod .seekrow { display: flex; }
     function keep(h) { stash.push(h); return "\u0001" + (stash.length - 1) + "\u0002"; }
     function linkTo(file, frag, text) { return '<a href="#" class="wl" data-nl="' + esc(file.path) + '"' + (frag ? ' data-nh="' + esc(frag) + '"' : "") + ">" + text + "</a>"; }
     function plainUrl(u) { return /^(https?:|mailto:)/i.test(u); }
-    function emph(x) {                                                              // Hervorhebungen
+    function emph(x) {                                                              // emphasis
       x = x.replace(/(\*\*\*|___)(?=\S)([\s\S]*?\S)\1/g, "<strong><em>$2</em></strong>");
       x = x.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, "<strong>$1</strong>");
       x = x.replace(/(^|[^\w])__(?=\S)([\s\S]*?\S)__(?!\w)/g, "$1<strong>$2</strong>");
@@ -1828,7 +1852,7 @@ body.pod .seekrow { display: flex; }
     t = t.replace(/&lt;br\s*\/?&gt;/gi, function () { return keep("<br>"); });
     t = t.replace(/&lt;(\/?)(kbd|sub|sup|mark|u|b|i|em|strong|del|ins|small|s)&gt;/gi, function (m, sl, tag) { return keep("<" + sl + tag.toLowerCase() + ">"); });
     t = t.replace(/(^|[^\w$\\])\$(?!\s)([^$\n]*?[^\s$\\])\$(?![\w$])/g, function (m, pre, math) { return pre + keep('<span class="math">' + math + "</span>"); });
-    // Obsidian-Einbettungen und Wikilinks
+    // Obsidian embeds and wikilinks
     t = t.replace(/!\[\[([^\]|#]+?)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, function (m, name, size) {
       var n = unesc(name);
       if (MD_IMG.test(n)) {
@@ -1842,9 +1866,9 @@ body.pod .seekrow { display: flex; }
       var n = unesc(name), fr = frag ? unesc(frag) : "", label = alias || (name && frag ? name + " > " + frag : name || frag);
       if (!n) return keep('<a href="#" class="wl" data-goto="h-' + esc(slug(fr)) + '">' + label + "</a>");
       var f = c.wiki && c.wiki(n);
-      return keep(f ? linkTo(f, fr, label) : '<span class="unres" title="Notiz nicht gefunden">' + label + "</span>");
+      return keep(f ? linkTo(f, fr, label) : '<span class="unres" title="Note not found">' + label + "</span>");
     });
-    // Bilder und Links
+    // Images and links
     var DEST = "(&lt;[^&]+?&gt;|(?:[^()\\s]|\\([^)\\s]*\\))+)(?:\\s+&quot;(.*?)&quot;)?";
     t = t.replace(new RegExp("!\\[([^\\]]*)\\]\\(" + DEST + "\\)", "g"), function (m, alt, url, title) {
       var u = unesc(url.replace(/^&lt;(.*)&gt;$/, "$1")), size = /\|(\d+)$/.exec(alt), a = esc(unesc(alt).replace(/\|\d+$/, "")), w = size ? ' width="' + size[1] + '"' : "";
@@ -1857,30 +1881,30 @@ body.pod .seekrow { display: flex; }
       var u = unesc(url.replace(/^&lt;(.*)&gt;$/, "$1")), inner = emph(text), ttl = title ? ' title="' + title + '"' : "";
       if (plainUrl(u)) return keep('<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer"' + ttl + ">" + inner + "</a>");
       if (u.charAt(0) === "#") { var h; try { h = decodeURIComponent(u.slice(1)); } catch (e) { h = u.slice(1); } return keep('<a href="#" class="wl" data-goto="h-' + esc(slug(h)) + '">' + inner + "</a>"); }
-      if (/^[a-z][a-z0-9+.-]*:/i.test(u)) return keep(inner);                       // javascript:, data: ... nie als Link
+      if (/^[a-z][a-z0-9+.-]*:/i.test(u)) return keep(inner);                       // javascript:, data: ... never as a link
       var hash = u.indexOf("#"), f = c.rel && c.rel(hash < 0 ? u : u.slice(0, hash)), frag = hash < 0 ? "" : u.slice(hash + 1);
       try { frag = decodeURIComponent(frag); } catch (e) {}
-      return keep(f && f.kind === "md" ? linkTo(f, frag, inner) : '<span class="unres" title="Datei nicht gefunden">' + inner + "</span>");
+      return keep(f && f.kind === "md" ? linkTo(f, frag, inner) : '<span class="unres" title="File not found">' + inner + "</span>");
     });
-    // Autolinks (ohne Platzhalter \u0001…\u0002: dort steht schon umgewandeltes Markdown, z. B. Inline-Code direkt hinter der Adresse)
+    // Autolinks (without placeholders \u0001…\u0002: there is already converted Markdown, e.g. inline code right after the address)
     t = t.replace(/&lt;((?:https?|mailto):[^\s\u0001\u0002]*?)&gt;/g, function (m, u) { return keep('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + "</a>"); });
     t = t.replace(/(^|[^\w"=])(https?:\/\/(?:[^\s&\u0001\u0002]|&amp;)+)/g, function (m, pre, u) {
       var tail = /[.,;:!?)\]]+$/.exec(u); if (tail) u = u.slice(0, -tail[0].length);
       return u.length > 8 ? pre + keep('<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + "</a>") + (tail ? tail[0] : "") : m;
     });
-    // Fußnoten
+    // Footnotes
     t = t.replace(/\[\^([^\]\s]+)\]/g, function (m, eid) {
       var id = unesc(eid);
       if (c.fnIdx[id] === undefined) { c.fnOrder.push(id); c.fnIdx[id] = c.fnOrder.length; }
       return keep('<sup class="fnref"><a href="#" id="fnref-' + esc(id) + '" data-goto="fn-' + esc(id) + '">' + c.fnIdx[id] + "</a></sup>");
     });
     t = emph(t);
-    t = t.replace(/\n/g, "<br>");                                                  // wie Obsidian: Zeilenumbruch bleibt sichtbar
+    t = t.replace(/\n/g, "<br>");                                                  // like Obsidian: the line break stays visible
     for (var pass = 0; pass < 6 && t.indexOf("\u0001") >= 0; pass++) t = t.replace(/\u0001(\d+)\u0002/g, function (m, i) { return stash[+i]; });
     return t;
   }
 
-  /* -- Markdown: Blöcke -- */
+  /* -- Markdown: blocks -- */
   var LIST_RE = /^( *)([-*+]|\d{1,9}[.)])( +|$)(.*)$/;
   var HR_RE = /^ {0,3}([-*_])( *\1){2,} *$/;
   var TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
@@ -1903,7 +1927,7 @@ body.pod .seekrow { display: flex; }
     return cells;
   }
   function headingHtml(level, text, c) {
-    var base = slug(text) || "abschnitt", id = base, n = 1;
+    var base = slug(text) || "section", id = base, n = 1;
     while (c.slugs[id]) id = base + "-" + (n++);
     c.slugs[id] = 1; c.toc.push({ level: level, text: text.replace(/[`*_~=]/g, ""), id: "h-" + id });
     return "<h" + level + ' id="h-' + esc(id) + '">' + mdInline(text, c) + "</h" + level + ">";
@@ -1914,16 +1938,16 @@ body.pod .seekrow { display: flex; }
     while (i < n) {
       var ln = lines[i];
       if (isBlank(ln)) { i++; continue; }
-      // Kommentar-Block %% ... %%
+      // Comment block %% ... %%
       if (/^\s*%%/.test(ln) && ln.replace(/^\s*%%/, "").indexOf("%%") < 0) { i++; while (i < n && lines[i].indexOf("%%") < 0) i++; i++; continue; }
-      // Code-Block
+      // Code block
       if ((m = /^( {0,3})(`{3,}|~{3,})\s*([^\s`]*)/.exec(ln))) {
         var ch = m[2].charAt(0), len = m[2].length, ind = m[1].length, buf = [], closeRe = new RegExp("^ {0,3}" + ch + "{" + len + ",}\\s*$"), strip = new RegExp("^ {0," + ind + "}");
         i++;
         while (i < n && !closeRe.test(lines[i])) { buf.push(lines[i].replace(strip, "")); i++; }
         i++; out.push(codeBlock(buf.join("\n"), m[3])); continue;
       }
-      // Formelblock $$ ... $$
+      // Formula block $$ ... $$
       if (/^\s*\$\$/.test(ln)) {
         var one = /^\s*\$\$([\s\S]*?)\$\$\s*$/.exec(ln), mb = [];
         if (one) { out.push('<div class="math">' + esc(one[1].trim()) + "</div>"); i++; continue; }
@@ -1932,10 +1956,10 @@ body.pod .seekrow { display: flex; }
         if (i < n) mb.push(lines[i].replace(/\$\$.*$/, "")); i++;
         out.push('<div class="math">' + esc(mb.join("\n").trim()) + "</div>"); continue;
       }
-      // Überschrift
+      // Heading
       if (/^ {0,3}#{1,6}(\s|$)/.test(ln) && (m = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/.exec(ln))) { out.push(headingHtml(m[1].length, m[2] || "", c)); i++; continue; }
       if (HR_RE.test(ln)) { out.push("<hr>"); i++; continue; }
-      // Zitat / Callout
+      // Quote / callout
       if (/^ {0,3}>/.test(ln)) {
         var q = [];
         while (i < n && /^ {0,3}>/.test(lines[i])) { q.push(lines[i].replace(/^ {0,3}> ?/, "")); i++; }
@@ -1949,7 +1973,7 @@ body.pod .seekrow { display: flex; }
         } else out.push("<blockquote>" + mdBlocks(q, c, true, false) + "</blockquote>");
         continue;
       }
-      // Tabelle
+      // Table
       if (tableAt(i)) {
         var head = splitRow(ln), al = splitRow(lines[i + 1]).map(function (s) { return /^:-+:$/.test(s) ? "center" : /^-+:$/.test(s) ? "right" : /^:-+$/.test(s) ? "left" : ""; });
         var cell = function (tag, s, k) { return "<" + tag + (al[k] ? ' style="text-align:' + al[k] + '"' : "") + ">" + mdInline(s, c) + "</" + tag + ">"; };
@@ -1961,7 +1985,7 @@ body.pod .seekrow { display: flex; }
         }
         out.push('<div class="tbl">' + html + "</tbody></table></div>"); continue;
       }
-      // Liste
+      // List
       if ((m = LIST_RE.exec(ln)) && (m[4] !== "" || m[3] !== "")) {
         var ordered = /\d/.test(m[2]), base = m[1].length, start = ordered ? parseInt(m[2], 10) : 1, items = [], loose = false;
         while (i < n) {
@@ -1994,19 +2018,19 @@ body.pod .seekrow { display: flex; }
         }).join("");
         out.push("<" + tag + (ordered && start !== 1 ? ' start="' + start + '"' : "") + ">" + lis + "</" + tag + ">"); continue;
       }
-      // eingerückter Code (nur auf oberster Ebene)
+      // indented code (top level only)
       if (!inItem && /^ {4}/.test(ln)) {
         var cb = [];
         while (i < n && (/^ {4}/.test(lines[i]) || (isBlank(lines[i]) && i + 1 < n && /^ {4}/.test(lines[i + 1])))) { cb.push(lines[i].slice(4)); i++; }
         out.push(codeBlock(cb.join("\n"), "")); continue;
       }
-      // Fußnotendefinition
+      // Footnote definition
       if ((m = /^ {0,3}\[\^([^\]\s]+)\]:\s*(.*)$/.exec(ln))) {
         var fb = [m[2]]; i++;
         while (i < n && !isBlank(lines[i]) && !/^ {0,3}\[\^[^\]\s]+\]:/.test(lines[i]) && (/^ {2,}/.test(lines[i]) || !startsBlock(lines[i]))) { fb.push(lines[i].trim()); i++; }
         c.notes[m[1]] = fb.join("\n"); continue;
       }
-      // Absatz (mit Setext-Überschrift)
+      // Paragraph (with setext heading)
       var pb = [ln], setext = 0; i++;
       while (i < n && !isBlank(lines[i])) {
         var su = /^ {0,3}(=+|-+)\s*$/.exec(lines[i]);
@@ -2027,27 +2051,27 @@ body.pod .seekrow { display: flex; }
       else if (li && cur) cur.v = (cur.v ? cur.v + ", " : "") + li[1].trim();
     });
     if (!rows.length) return "";
-    return '<details class="props"><summary>Eigenschaften</summary><table>' + rows.map(function (r) {
+    return '<details class="props"><summary>Properties</summary><table>' + rows.map(function (r) {
       return "<tr><th>" + esc(r.k) + "</th><td>" + esc(r.v.replace(/^\[(.*)\]$/, "$1").replace(/^["'](.*)["']$/, "$1")) + "</td></tr>";
     }).join("") + "</table></details>";
   }
   function mdRender(text, c) {
     text = String(text).replace(/\r\n?/g, "\n").replace(/^﻿/, "");
     c.toc = []; c.slugs = Object.create(null); c.notes = Object.create(null); c.fnOrder = []; c.fnIdx = Object.create(null);
-    var props = "", fm = /^---[ \t]*\n(?:([\s\S]*?)\n)?(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(text);      // auch leere Eigenschaften "---\n---"
+    var props = "", fm = /^---[ \t]*\n(?:([\s\S]*?)\n)?(?:---|\.\.\.)[ \t]*(?:\n|$)/.exec(text);      // also empty properties "---\n---"
     if (fm) { props = mdProps(fm[1] || ""); text = text.slice(fm[0].length); }
     var lines = text.split("\n").map(function (l) { return l.replace(/^\t+/, function (t) { return "    ".repeat(t.length); }); });
     var html = mdBlocks(lines, c, false, false), foot = "";
     if (c.fnOrder.length) {
       foot = '<section class="footnotes"><ol>' + c.fnOrder.map(function (id) {
-        return '<li id="fn-' + esc(id) + '">' + (c.notes[id] !== undefined ? mdInline(c.notes[id], c) : "?") + ' <a href="#" class="back" data-goto="fnref-' + esc(id) + '" aria-label="Zurück zum Text">↩</a></li>';
+        return '<li id="fn-' + esc(id) + '">' + (c.notes[id] !== undefined ? mdInline(c.notes[id], c) : "?") + ' <a href="#" class="back" data-goto="fnref-' + esc(id) + '" aria-label="Back to the text">↩</a></li>';
       }).join("") + "</ol></section>";
     }
     return { html: props + html + foot, toc: c.toc };
   }
 
-  /* -- Vault: Index, Pfade und Links -- */
-  // Der Index gehört zu genau einem Ordner (id) und einem Dateistand (n): wer ihn braucht, bekommt über idxFor immer den passenden.
+  /* -- Vault: index, paths and links -- */
+  // The index belongs to exactly one folder (id) and one file state (n): whoever needs it always gets the matching one through idxFor.
   function idxFor(v) { if (!vIdx || vIdx.id !== v.id || vIdx.n !== v.files.length) vIdx = indexVault(v); return vIdx; }
   function indexVault(v) {
     var ix = { id: v.id, n: v.files.length, byPath: Object.create(null), md: Object.create(null), img: Object.create(null) };
@@ -2078,7 +2102,7 @@ body.pod .seekrow { display: flex; }
         var n = name.trim().toLowerCase().replace(MD_RE, "");
         if (n.indexOf("/") >= 0) {
           var hit = ix.byPath[n + ".md"] || ix.byPath[n + ".markdown"]; if (hit) return hit;
-          return closest((ix.md[n.split("/").pop()] || []).filter(function (x) {        // nur ganze Ordnernamen: "b/X" passt nicht auf "ab/X"
+          return closest((ix.md[n.split("/").pop()] || []).filter(function (x) {        // whole folder names only: "b/X" does not match "ab/X"
             var p = x.path.toLowerCase().replace(MD_RE, ""); return p === n || p.slice(-n.length - 1) === "/" + n;
           }), f.path);
         }
@@ -2116,27 +2140,27 @@ body.pod .seekrow { display: flex; }
     }));
   }
 
-  /* -- Lesen -- */
+  /* -- Reading -- */
   function scrollToId(id) {
     var el = document.getElementById(id);
     if (el) { if (el.scrollIntoView) el.scrollIntoView({ block: "start", behavior: "smooth" }); return true; }
     return false;
   }
   function readerShell(v, f, r) {
-    var toc = r.toc.length > 1 ? '<nav class="toc" id="toc" hidden aria-label="Inhalt">' + r.toc.filter(function (h) { return h.level <= 4; }).map(function (h) {
+    var toc = r.toc.length > 1 ? '<nav class="toc" id="toc" hidden aria-label="Contents">' + r.toc.filter(function (h) { return h.level <= 4; }).map(function (h) {
       return '<a href="#" class="l' + h.level + '" data-goto="' + esc(h.id) + '">' + esc(h.text) + "</a>";
     }).join("") + "</nav>" : "";
-    return '<div class="rbar"><button class="btn" data-act="nback" aria-label="' + (noteStack.length ? "Zurück zur vorherigen Notiz" : "Zur Ordnerübersicht") + '">' +
+    return '<div class="rbar"><button class="btn" data-act="nback" aria-label="' + (noteStack.length ? "Back to the previous note" : "To the folder overview") + '">' +
       sv('<path d="m15 5-7 7 7 7"/>') + '</button><div class="rt"><div class="t">' + esc(noteTitle(f.path)) + '</div><div class="s">' + esc(v.name + (dirOf(f.path) ? " / " + dirOf(f.path) : "")) + "</div></div>" +
-      (toc ? '<button class="btn" data-act="ntoc" aria-label="Inhaltsverzeichnis">' + sv('<path d="M4 6h16M4 12h10M4 18h13"/>') + "</button>" : "") +
-      '<button class="btn" data-act="nfs-" aria-label="Schrift kleiner">A−</button><button class="btn" data-act="nfs+" aria-label="Schrift größer">A+</button></div>' + toc +
+      (toc ? '<button class="btn" data-act="ntoc" aria-label="Table of contents">' + sv('<path d="M4 6h16M4 12h10M4 18h13"/>') + "</button>" : "") +
+      '<button class="btn" data-act="nfs-" aria-label="Smaller text">A−</button><button class="btn" data-act="nfs+" aria-label="Larger text">A+</button></div>' + toc +
       '<article class="paper"><div class="md" id="mdBody" style="font-size:' + Math.round(mdFs * 100) + '%">' + r.html + "</div></article>";
   }
   function showNote(v, path, o) {
     o = o || {};
     var f = idxFor(v).byPath[String(path).toLowerCase()];
-    if (!f || f.kind !== "md") { toast("Notiz nicht gefunden.", 4000); return; }
-    var back = o.push && openNote ? { path: openNote, y: window.scrollY } : null;   // erst eintragen, wenn die Notiz wirklich angezeigt wird
+    if (!f || f.kind !== "md") { toast("Note not found.", 4000); return; }
+    var back = o.push && openNote ? { path: openNote, y: window.scrollY } : null;   // only record it once the note is really shown
     var my = ++noteReq;
     readText(v, f).then(function (text) {
       if (my !== noteReq || openVaultId !== v.id) return;
@@ -2148,10 +2172,10 @@ body.pod .seekrow { display: flex; }
       var y = o.y != null ? o.y : (mdPos[v.id + "/" + f.path] || 0);
       if (o.frag) { if (!scrollToId("h-" + slug(o.frag))) window.scrollTo(0, 0); } else window.scrollTo(0, y);
       loadImages(v, my).then(function () { if (my === noteReq && !o.frag && Math.abs(window.scrollY - y) > 2 && y > 0) window.scrollTo(0, y); });
-    }).catch(function () { if (my === noteReq) toast("Notiz konnte nicht gelesen werden.", 5000); });
+    }).catch(function () { if (my === noteReq) toast("The note could not be read.", 5000); });
   }
-  // Notiz und Position werden beim Scrollen festgehalten, nicht erst beim Speichern: bis dahin ist vielleicht schon eine andere Notiz
-  // (oder die Ordneransicht) offen. Gehört die nächste Scroll-Meldung zu einer anderen Notiz, wird die vorige sofort gespeichert.
+  // Note and position are captured while scrolling, not only when saving: by then another note (or the folder view) may be open.
+  // If the next scroll report belongs to a different note, the previous one is saved at once.
   var scrollPend = null;
   function flushScroll() {
     clearTimeout(scrollT); if (!scrollPend) return;
@@ -2169,14 +2193,14 @@ body.pod .seekrow { display: flex; }
   }, { passive: true });
   window.addEventListener("pagehide", flushScroll);
 
-  /* -- Übersicht, Ordnerbaum und Suche -- */
+  /* -- Overview, folder tree and search -- */
   function vaultStats(v) {
     var md = 0, img = 0, size = 0;
     v.files.forEach(function (f) { if (f.kind === "md") md++; else img++; size += f.size || 0; });
     return { md: md, img: img, size: size };
   }
-  // Alles zurücksetzen, was zum geöffneten Ordner gehört. noteReq++ entwertet auch eine noch laufende Lese-Anfrage einer Notiz,
-  // sonst würde sie später einen Leser für einen nicht mehr vorhandenen Ordner anzeigen (mit nutzlosem "Zurück").
+  // Reset everything that belongs to the open folder. noteReq++ also invalidates a still-running read request for a note,
+  // otherwise it would later show a reader for a folder that no longer exists (with a useless "Back").
   function closeVault() { openVaultId = null; openNote = null; vIdx = null; mdTexts = null; noteStack = []; noteReq++; revokeImgs(); }
   function renderNotes() {
     var v = openVaultId ? findVault(openVaultId) : null;
@@ -2186,17 +2210,17 @@ body.pod .seekrow { display: flex; }
     renderVaultTree(v);
   }
   function renderVaultLib() {
-    var html = '<div class="kinds">' + pb("vadd", "0", "Ordner hinzufügen", true) + pb("vfiles", "0", "Einzelne Dateien") + "</div>";
-    if (importing && importing.kind === "vault") html += '<div class="pod-row bk"><div class="bk-icon">' + NOTE_SVG + '</div><div class="pod-tx"><div class="pod-ti">' + esc(importing.name) + '</div><div class="pod-meta">Wird gespeichert … ' +
-      importing.done + " von " + importing.total + '</div><div class="bar"><i style="width:' + Math.round(importing.done / importing.total * 100) + '%"></i></div></div></div>';
-    if (!vaults.length && !(importing && importing.kind === "vault")) html += empty("Noch keine Notizen. Wähle einen Ordner mit Markdown-Dateien, zum Beispiel deinen Obsidian-Vault oder einen Ordner mit Konspekten. Unterordner und Bilder werden mitgelesen.");
+    var html = '<div class="kinds">' + pb("vadd", "0", "Add folder", true) + pb("vfiles", "0", "Single files") + "</div>";
+    if (importing && importing.kind === "vault") html += '<div class="pod-row bk"><div class="bk-icon">' + NOTE_SVG + '</div><div class="pod-tx"><div class="pod-ti">' + esc(importing.name) + '</div><div class="pod-meta">Saving … ' +
+      importing.done + " of " + importing.total + '</div><div class="bar"><i style="width:' + Math.round(importing.done / importing.total * 100) + '%"></i></div></div></div>';
+    if (!vaults.length && !(importing && importing.kind === "vault")) html += empty("No notes yet. Pick a folder of Markdown files, for example your Obsidian vault or a folder of study notes. Subfolders and images are included.");
     else if (vaults.length) {
       var total = vaults.reduce(function (n, x) { return n + vaultStats(x).size; }, 0);
-      html += '<div class="pod-sec"><span>' + vaults.length + " Ordner · " + fmtSize(total) + '</span></div><div class="pod-list">' + vaults.map(function (v) {
+      html += '<div class="pod-sec"><span>' + cnt(vaults.length, "folder") + " · " + fmtSize(total) + '</span></div><div class="pod-list">' + vaults.map(function (v) {
         var s = vaultStats(v);
-        return '<div class="pod-row bk"><div class="bk-icon">' + NOTE_SVG + '</div><div class="pod-tx"><div class="pod-ti">' + esc(v.name) + '</div><div class="pod-meta">' + s.md + " Notizen" + (s.img ? " · " + s.img + " Bilder" : "") + " · " + fmtSize(s.size) + "</div>" +
-          (v.last ? '<div class="pod-meta">Zuletzt: ' + esc(noteTitle(v.last)) + "</div>" : "") + '</div><div class="pod-act">' +
-          (v.last ? pb("vresume", v.id, "Weiter", true) : "") + pb("vopen", v.id, "Öffnen", !v.last) + ab("vdel", v.id, sv(P.trash), "Ordner löschen") + "</div></div>";
+        return '<div class="pod-row bk"><div class="bk-icon">' + NOTE_SVG + '</div><div class="pod-tx"><div class="pod-ti">' + esc(v.name) + '</div><div class="pod-meta">' + cnt(s.md, "note") + (s.img ? " · " + cnt(s.img, "image") : "") + " · " + fmtSize(s.size) + "</div>" +
+          (v.last ? '<div class="pod-meta">Last: ' + esc(noteTitle(v.last)) + "</div>" : "") + '</div><div class="pod-act">' +
+          (v.last ? pb("vresume", v.id, "Continue", true) : "") + pb("vopen", v.id, "Open", !v.last) + ab("vdel", v.id, sv(P.trash), "Delete folder") + "</div></div>";
       }).join("") + "</div>";
     }
     noteBody.innerHTML = html;
@@ -2225,12 +2249,12 @@ body.pod .seekrow { display: flex; }
   }
   function renderVaultTree(v) {
     var s = vaultStats(v);
-    noteBody.innerHTML = '<div class="back-row">' + pb("vback", "0", "← Ordner") + '</div><div class="show-head"><div class="bk-icon big">' + NOTE_SVG + '</div><div class="tx"><h2>' + esc(v.name) + "</h2><p>" + s.md + " Notizen" +
-      (s.img ? " · " + s.img + " Bilder" : "") + " · " + fmtSize(s.size) + "</p></div></div>" +
-      (importing && importing.kind === "vault" ? '<div class="hint" style="margin:0 2px 10px">Wird aktualisiert … ' + importing.done + " von " + importing.total + "</div>" : "") +
-      '<div class="kinds">' + (v.last ? pb("vresume", v.id, "Weiter: " + esc(noteTitle(v.last)), true) : "") + pb("vaddfiles", v.id, "Dateien hinzufügen") + pb("vadddir", v.id, "Ordner hinzufügen") + pb("vrefresh", v.id, "Aktualisieren") + pb("vrename", v.id, "Umbenennen") + pb("vdel", v.id, "Löschen") + "</div>" +
+    noteBody.innerHTML = '<div class="back-row">' + pb("vback", "0", "← Folders") + '</div><div class="show-head"><div class="bk-icon big">' + NOTE_SVG + '</div><div class="tx"><h2>' + esc(v.name) + "</h2><p>" + cnt(s.md, "note") +
+      (s.img ? " · " + cnt(s.img, "image") : "") + " · " + fmtSize(s.size) + "</p></div></div>" +
+      (importing && importing.kind === "vault" ? '<div class="hint" style="margin:0 2px 10px">Refreshing … ' + importing.done + " of " + importing.total + "</div>" : "") +
+      '<div class="kinds">' + (v.last ? pb("vresume", v.id, "Continue: " + esc(noteTitle(v.last)), true) : "") + pb("vaddfiles", v.id, "Add files") + pb("vadddir", v.id, "Add folder") + pb("vrefresh", v.id, "Refresh") + pb("vrename", v.id, "Rename") + pb("vdel", v.id, "Delete") + "</div>" +
       '<div class="tools"><label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>' +
-      '<input id="mdq" type="search" placeholder="In Notizen suchen" autocomplete="off" aria-label="In Notizen suchen" value="' + esc(mdQuery) + '"></label></div><div id="mdRes"></div>';
+      '<input id="mdq" type="search" placeholder="Search in notes" autocomplete="off" aria-label="Search in notes" value="' + esc(mdQuery) + '"></label></div><div id="mdRes"></div>';
     renderRes(v);
   }
   function ensureTexts(v) {
@@ -2245,7 +2269,7 @@ body.pod .seekrow { display: flex; }
     words.forEach(function (w) { var k = low.indexOf(w); if (k >= 0 && (at < 0 || k < at)) at = k; });
     if (at < 0) at = 0;
     var from = Math.max(0, at - 50), s = text.slice(from, at + 110).replace(/\s+/g, " ");
-    // Treffer im Klartext markieren und erst dann escapen: sonst fände z. B. "amp" das "&amp;" eines escapten "&" und zerstörte es
+    // Mark hits in plain text and only then escape: otherwise e.g. "amp" would find the "&amp;" of an escaped "&" and break it
     var re = new RegExp(words.map(function (w) { return w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("|"), "gi"), h = "", last = 0, m;
     while ((m = re.exec(s))) { if (!m[0]) { re.lastIndex++; continue; } h += esc(s.slice(last, m.index)) + "<mark>" + esc(m[0]) + "</mark>"; last = re.lastIndex; }
     h += esc(s.slice(last));
@@ -2255,7 +2279,7 @@ body.pod .seekrow { display: flex; }
     var el = $("mdRes"); if (!el) return;
     var q = mdQuery.trim().toLowerCase(), my = ++searchReq;
     if (!q) { el.innerHTML = treeHtml(v); return; }
-    el.innerHTML = empty("Suche …");
+    el.innerHTML = empty("Searching …");
     var words = q.split(/\s+/).filter(Boolean);
     ensureTexts(v).then(function (T) {
       if (my !== searchReq || !$("mdRes")) return;
@@ -2266,26 +2290,26 @@ body.pod .seekrow { display: flex; }
         hits.push({ p: p, byName: words.every(function (w) { return name.indexOf(w) >= 0; }), text: text });
       });
       hits.sort(function (a, b) { return (b.byName - a.byName) || natCmp(a.p, b.p); });
-      $("mdRes").innerHTML = hits.length ? '<div class="pod-sec"><span>' + hits.length + (hits.length > 60 ? " Treffer (erste 60)" : " Treffer") + '</span></div><div class="pod-list">' + hits.slice(0, 60).map(function (h) {
+      $("mdRes").innerHTML = hits.length ? '<div class="pod-sec"><span>' + (hits.length > 60 ? hits.length + " hits (first 60)" : cnt(hits.length, "hit")) + '</span></div><div class="pod-list">' + hits.slice(0, 60).map(function (h) {
         return '<button class="hit" data-act="nopen" data-p="' + esc(h.p) + '"><span class="pod-ti">' + esc(noteTitle(h.p)) + '</span><span class="pod-meta">' + esc(dirOf(h.p)) + '</span><span class="sn">' + snippet(h.text, words) + "</span></button>";
-      }).join("") + "</div>" : empty("Nichts gefunden.");
+      }).join("") + "</div>" : empty("Nothing found.");
     });
   }
 
-  /* -- Hinzufügen / Aktualisieren / Löschen -- */
-  function collectItems(fileList, keepTop) {             // keepTop: der gewählte Ordner bleibt als Unterordner erhalten
+  /* -- Add / refresh / delete -- */
+  function collectItems(fileList, keepTop) {             // keepTop: the chosen folder stays as a subfolder
     var items = [];
     Array.prototype.slice.call(fileList).forEach(function (f) {
       var rel = f.webkitRelativePath || f.name, parts = rel.split("/");
-      if (f.webkitRelativePath && !keepTop) parts.shift();            // der Ordnername steht schon im Titel
-      if (!parts.length || parts.some(function (s) { return s.charAt(0) === "."; })) return;      // versteckt: .obsidian, .git, .trash ...
+      if (f.webkitRelativePath && !keepTop) parts.shift();            // the folder name is already in the title
+      if (!parts.length || parts.some(function (s) { return s.charAt(0) === "."; })) return;      // hidden: .obsidian, .git, .trash ...
       var path = parts.join("/"), kind = MD_RE.test(path) ? "md" : MD_IMG.test(path) ? "img" : null;
       if (kind) items.push({ f: f, path: path, kind: kind, size: f.size, mod: f.lastModified || 0 });
     });
     return items;
   }
-  // Führt work(v) unter der Lock des Ordners aus. Wurde der Ordner inzwischen durch "Aktualisieren" ersetzt (neue ID), folgt die Aktion dem Nachfolger
-  // (v.replaces listet die früheren IDs), statt eine bestätigte Aktion stillschweigend zu verlieren. Gibt es weder den Ordner noch einen Nachfolger: goneError.
+  // Runs work(v) under the lock of the folder. If the folder has been replaced in the meantime by "Refresh" (new ID), the action follows the successor
+  // (v.replaces lists the earlier IDs) instead of silently losing a confirmed action. If there is neither the folder nor a successor: goneError.
   function withVault(id, work) {
     return withImportLock(id, function () {
       vaults = loadList("vaults", "files");
@@ -2296,20 +2320,20 @@ body.pod .seekrow { display: flex; }
       return withVault(succ.id, work);
     });
   }
-  // Dateien zu einem bestehenden Ordner hinzufügen: neue Pfade bekommen neue Schlüssel, vorhandene Pfade werden ersetzt.
-  // Was frei ist und was schon existiert, wird erst unter der Lock aus dem gespeicherten Stand berechnet (ein zweiter Tab kann inzwischen
-  // schon Dateien ergänzt haben). Wird der Ordner währenddessen gelöscht, wird alles wieder entfernt, was dieser Vorgang geschrieben hat.
+  // Add files to an existing folder: new paths get new keys, existing paths are replaced.
+  // What is free and what already exists is only computed under the lock from the saved state (a second tab may have added
+  // files in the meantime). If the folder is deleted meanwhile, everything this operation wrote is removed again.
   function addToVault(v0, fileList, keepTop) {
     var items = collectItems(fileList, keepTop);
-    if (!items.length) { toast("Keine Markdown-Dateien oder Bilder gefunden.", 5000); return; }
-    if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
-    var work = [], fresh = 0, start = 0, written = [], tgt = v0;           // tgt: der Ordner, in den wirklich geschrieben wird (evtl. der Nachfolger nach einem Aktualisieren)
+    if (!items.length) { toast("No Markdown files or images found.", 5000); return; }
+    if (importing) { toast("Something is already being added.", 4000); return; }
+    var work = [], fresh = 0, start = 0, written = [], tgt = v0;           // tgt: the folder that is really written to (possibly the successor after a refresh)
     importing = { kind: "vault", name: v0.name, done: 0, total: items.length }; renderNotesIfVisible();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
     function copyAll() {
       return (function step(i) {
         if (i >= work.length) return null;
-        if (!savedEntry(tgt.id)) throw goneError();           // Ordner gelöscht (z. B. in einem Tab ohne Web Locks): nicht weiterschreiben
+        if (!savedEntry(tgt.id)) throw goneError();           // folder deleted (e.g. in a tab without Web Locks): stop writing
         var w = work[i], k = fid(tgt, w.f);
         return idbDo("readwrite", function (os) { return os.put(w.it.f, k); }).then(function () {
           written.push(k); importing.done = i + 1; if (fresh) setPending(tgt, fresh, start); renderNotesIfVisible(); return step(i + 1);
@@ -2328,9 +2352,9 @@ body.pod .seekrow { display: flex; }
         else { work.push({ it: it, f: { id: "k" + next++, path: it.path, kind: it.kind, size: it.size, mod: it.mod }, isNew: true }); fresh++; }
       });
       importing.total = work.length; renderNotesIfVisible();
-      if (fresh) setPending(v, fresh, start);                // vor der ersten Datei: neue Schlüssel ab "start" sind auffindbar
+      if (fresh) setPending(v, fresh, start);                // before the first file: new keys from "start" can be found
       return Promise.resolve(copyAll()).then(function () {
-        vaults = loadList("vaults", "files");                  // noch einmal frisch eintragen
+        vaults = loadList("vaults", "files");                  // record once more with fresh state
         var cur = findVault(tgt.id);
         if (!cur) throw goneError();
         var byId = emptyMap(); cur.files.forEach(function (f) { byId[f.id] = f; });
@@ -2339,28 +2363,28 @@ body.pod .seekrow { display: flex; }
           else if (byId[w.f.id]) { byId[w.f.id].size = w.it.size; byId[w.f.id].mod = w.it.mod; }
         });
         saveVaults(); store.set("pending", null);
-      }).catch(function (err) {                              // Ordner weg: auch ersetzte Dateien entfernen (sonst wären sie ohne Eintrag verwaist)
+      }).catch(function (err) {                              // folder gone: also remove replaced files (otherwise they would be orphaned without an entry)
         return (err && err.gone ? dropList(written) : Promise.resolve()).then(function () { return fresh ? dropKeys(tgt.id, fresh, start) : null; })
           .then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
       });
     }).then(function () {
       importing = null;
       if (mdTexts && (mdTexts.id === v0.id || mdTexts.id === tgt.id)) mdTexts = null;
-      toast(fresh + " neu" + (work.length - fresh ? ", " + (work.length - fresh) + " ersetzt" : "") + " in „" + esc(v0.name) + "“.", 4000);
+      toast(fresh + " new" + (work.length - fresh ? ", " + (work.length - fresh) + " replaced" : "") + " in \"" + esc(v0.name) + "\".", 4000);
       renderNotesIfVisible();
     }, function (err) {
-      importing = null; toast(err && err.gone ? "Der Ordner wurde währenddessen gelöscht." : "Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000); renderNotesIfVisible();
+      importing = null; toast(err && err.gone ? "The folder was deleted in the meantime." : "Adding failed. Is the storage full?", 8000); renderNotesIfVisible();
     });
   }
   function importVault(fileList, forcedName, replaceId) {
     var all = Array.prototype.slice.call(fileList), items = collectItems(fileList, false);
     var mdCount = items.filter(function (x) { return x.kind === "md"; }).length;
-    if (!mdCount) { toast("Keine Markdown-Dateien gefunden.", 5000); return; }
-    if (importing) { toast("Es wird gerade schon etwas hinzugefügt.", 4000); return; }
+    if (!mdCount) { toast("No Markdown files found.", 5000); return; }
+    if (importing) { toast("Something is already being added.", 4000); return; }
     var old0 = replaceId ? findVault(replaceId) : null;
-    var name = (old0 && old0.name) || forcedName || (all[0] && (all[0].webkitRelativePath || "").split("/")[0]) || "Notizen";
+    var name = (old0 && old0.name) || forcedName || (all[0] && (all[0].webkitRelativePath || "").split("/")[0]) || "Notes";
     items.sort(function (a, b) { return natCmp(a.path, b.path); });
-    if (!old0 && vaults.some(function (x) { return x.name === name && vaultStats(x).md === mdCount; })) { toast("„" + esc(name) + "“ ist schon vorhanden. Zum Aktualisieren den Ordner öffnen und „Aktualisieren“ wählen.", 7000); return; }
+    if (!old0 && vaults.some(function (x) { return x.name === name && vaultStats(x).md === mdCount; })) { toast("\"" + esc(name) + "\" already exists. To update it, open the folder and choose \"Refresh\".", 7000); return; }
 
     var v = { id: "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, created: Date.now(), last: null, files: [] };
     importing = { kind: "vault", name: name, done: 0, total: items.length }; if (!old0) { openVaultId = null; openNote = null; } renderNotesIfVisible();
@@ -2374,11 +2398,11 @@ body.pod .seekrow { display: flex; }
         });
       })(0);
     }
-    function commit() {                                       // unter der Lock, mit frischem Stand; gibt den ersetzten Ordner zurück
+    function commit() {                                       // under the lock, with fresh state; returns the replaced folder
       vaults = loadList("vaults", "files");
       var old = replaceId ? findVault(replaceId) : null;
-      if (replaceId && !old) throw goneError();               // der alte Ordner wurde währenddessen gelöscht: die neue Kopie verwerfen
-      if (old) {                                              // Lesezustand übernehmen, dann die alte Kopie ersetzen
+      if (replaceId && !old) throw goneError();               // the old folder was deleted in the meantime: discard the new copy
+      if (old) {                                              // carry over the reading state, then replace the old copy
         var keep = emptyMap(); v.files.forEach(function (f) { keep[f.path.toLowerCase()] = f.path; });
         var lastKey = old.last ? old.last.toLowerCase() : null;
         v.last = lastKey && keep[lastKey] ? keep[lastKey] : null;
@@ -2388,7 +2412,7 @@ body.pod .seekrow { display: flex; }
           var p = keep[k.slice(old.id.length + 1).toLowerCase()]; if (p) mdPos[v.id + "/" + p] = mdPos[k]; delete mdPos[k];
         });
         store.set("mdpos", mdPos);
-        v.replaces = (old.replaces || []).concat(old.id).slice(-5);      // damit wartende Aktionen auf die alte ID dem Nachfolger folgen können (withVault)
+        v.replaces = (old.replaces || []).concat(old.id).slice(-5);      // so that waiting actions on the old ID can follow the successor (withVault)
         vaults[vaults.indexOf(old)] = v;
       } else vaults.push(v);
       saveVaults(); store.set("pending", null);
@@ -2398,41 +2422,41 @@ body.pod .seekrow { display: flex; }
       return withImportLock(v.id, function () {
         setPending(v, items.length);
         return Promise.resolve(copyAll()).then(commit).then(function (old) {
-          return old ? dropKeys(old.id, nextKey(old.files)).then(function () { return old; }, function () { return old; }) : old;      // alte Kopie entfernen (Fehler egal)
+          return old ? dropKeys(old.id, nextKey(old.files)).then(function () { return old; }, function () { return old; }) : old;      // remove the old copy (errors do not matter)
         }, function (err) {
           return dropKeys(v.id, items.length).then(function () { store.set("pending", null); }, function () {}).then(function () { throw err; });
         });
       });
     }
-    // Beim Aktualisieren zusätzlich die Lock des alten Ordners halten: so kann ihn niemand währenddessen löschen oder ergänzen
+    // When refreshing, also hold the lock of the old folder: that way nobody can delete or extend it in the meantime
     (replaceId ? withImportLock(replaceId, run) : run()).then(function (old) {
       importing = null;
       if (old) {
         if (mdTexts && mdTexts.id === old.id) mdTexts = null;
-        if (openVaultId === old.id) {                          // nur wenn gerade dieser Ordner offen ist; ein anderer geöffneter Ordner bleibt unberührt
+        if (openVaultId === old.id) {                          // only if this very folder is open; another open folder stays untouched
           openVaultId = v.id; noteBody.innerHTML = "";
           if (openNote && idxFor(v).byPath[openNote.toLowerCase()]) showNote(v, openNote, {}); else openNote = null;
         }
       }
       renderNotesIfVisible();
-      toast(old ? "„" + esc(name) + "“ aktualisiert." : "„" + esc(name) + "“ gespeichert.", 4000);
+      toast(old ? "\"" + esc(name) + "\" refreshed." : "\"" + esc(name) + "\" saved.", 4000);
     }, function (err) {
       importing = null;
-      toast(err && err.gone ? "Der Ordner wurde währenddessen gelöscht oder ersetzt; die neue Kopie wurde verworfen." : "Hinzufügen fehlgeschlagen. Ist der Speicher voll?", 8000);
+      toast(err && err.gone ? "The folder was deleted or replaced in the meantime; the new copy was discarded." : "Adding failed. Is the storage full?", 8000);
       renderNotesIfVisible();
     });
   }
   function renderNotesIfVisible() { if (view === "note" && !(openNote && noteBody.querySelector(".rbar"))) renderNotes(); }
-  // Löschen läuft unter derselben Lock wie Importe, Aktualisieren und Hinzufügen: es kann nicht zwischen deren Schreibvorgänge geraten
+  // Deleting runs under the same lock as imports, refreshing and adding: it cannot slip in between their writes
   function deleteVault(v0) {
-    if (!confirm("„" + v0.name + "“ und alle gespeicherten Dateien löschen?")) return;
-    if (importing) toast("Wird gelöscht, sobald das laufende Hinzufügen fertig ist.", 4000);
-    withVault(v0.id, function (v) {                          // folgt dem Nachfolger, falls der Ordner inzwischen aktualisiert (ersetzt) wurde
+    if (!confirm("Delete \"" + v0.name + "\" and all saved files?")) return;
+    if (importing) toast("It will be deleted as soon as the current adding is done.", 4000);
+    withVault(v0.id, function (v) {                          // follows the successor if the folder was refreshed (replaced) in the meantime
       return dropKeys(v.id, nextKey(v.files)).then(function () {
         loadMdPos();
         Object.keys(mdPos).forEach(function (k) { if (k.indexOf(v.id + "/") === 0) delete mdPos[k]; });
         store.set("mdpos", mdPos);
-        // frisch laden und nach ID entfernen (nicht per Objekt-Index: ein paralleler Vorgang hat die Liste inzwischen neu geladen)
+        // load fresh and remove by ID (not by object index: a parallel operation has reloaded the list in the meantime)
         vaults = loadList("vaults", "files").filter(function (x) { return x.id !== v.id; }); saveVaults();
         return v.id;
       });
@@ -2440,8 +2464,8 @@ body.pod .seekrow { display: flex; }
       if (openVaultId === v0.id || openVaultId === deletedId) closeVault();
       renderNotes();
     }, function (err) {
-      if (err && err.gone) { if (openVaultId === v0.id) closeVault(); renderNotes(); return; }         // gab es schon nicht mehr (z. B. in einem anderen Tab gelöscht)
-      toast("Löschen fehlgeschlagen.", 5000);
+      if (err && err.gone) { if (openVaultId === v0.id) closeVault(); renderNotes(); return; }         // it no longer existed (e.g. deleted in another tab)
+      toast("Deleting failed.", 5000);
     });
   }
   function openVault(v, note) {
@@ -2450,20 +2474,20 @@ body.pod .seekrow { display: flex; }
     else { openNote = null; renderVaultTree(v); window.scrollTo(0, 0); }
   }
 
-  /* -- Bedienung -- */
+  /* -- Controls -- */
   $("pickMd").addEventListener("change", function (e) {
     var files = Array.prototype.slice.call(e.target.files), id = refreshId, add = addTarget; refreshId = null; addTarget = null; e.target.value = "";
     if (!files.length) return;
     if (add) addToVaultOrSay(add.id, files, true); else importVault(files, null, id);
   });
-  // Ziel inzwischen ersetzt ("Aktualisieren"): dem Nachfolger folgen; gelöscht: Bescheid geben statt einen neuen Ordner anzulegen
-  function addToVaultOrSay(id, files, keepTop) { var v = findVault(id) || successorOf(id); if (v) addToVault(v, files, keepTop); else toast("Der Ordner wurde inzwischen gelöscht.", 5000); }
+  // target was replaced in the meantime ("Refresh"): follow the successor; deleted: tell the user instead of creating a new folder
+  function addToVaultOrSay(id, files, keepTop) { var v = findVault(id) || successorOf(id); if (v) addToVault(v, files, keepTop); else toast("The folder has been deleted in the meantime.", 5000); }
   $("pickMdFiles").addEventListener("change", function (e) {
     if (!e.target.files.length) return;
     var files = Array.prototype.slice.call(e.target.files), add = addTarget; addTarget = null; e.target.value = "";
     if (add) { addToVaultOrSay(add.id, files, false); return; }
-    var n = prompt("Name des Ordners:", "Meine Notizen");
-    if (n !== null) importVault(files, n.trim() || "Meine Notizen", null);
+    var n = prompt("Folder name:", "My notes");
+    if (n !== null) importVault(files, n.trim() || "My notes", null);
   });
   noteBody.addEventListener("input", function (e) {
     if (e.target.id !== "mdq") return;
@@ -2483,7 +2507,7 @@ body.pod .seekrow { display: flex; }
     if ((t = e.target.closest("[data-goto]"))) { e.preventDefault(); scrollToId(t.getAttribute("data-goto")); return; }
     if ((t = e.target.closest("[data-copy]"))) {
       var box = t.closest(".codebox"), code = box && box.querySelector("code");
-      copyText(code ? code.textContent : "").then(function () { t.textContent = "Kopiert ✓"; setTimeout(function () { t.textContent = "Kopieren"; }, 1500); }, function () { toast("Kopieren nicht möglich.", 3000); });
+      copyText(code ? code.textContent : "").then(function () { t.textContent = "Copied ✓"; setTimeout(function () { t.textContent = "Copy"; }, 1500); }, function () { toast("Copying is not possible.", 3000); });
       return;
     }
     if ((t = e.target.closest("a.unres, .unres"))) return;
@@ -2497,8 +2521,8 @@ body.pod .seekrow { display: flex; }
     else if (act === "vresume" && vv) openVault(vv, vv.last);
     else if (act === "vdel" && vv) deleteVault(vv);
     else if (act === "vback") { openVaultId = null; openNote = null; vIdx = null; renderNotes(); }
-    else if (act === "vrefresh" && vv) { refreshId = vv.id; addTarget = null; toast("Wähle den Ordner erneut aus; geänderte Notizen werden übernommen.", 5000); $("pickMd").click(); }
-    else if (act === "vrename" && vv) { var nn = prompt("Name des Ordners:", vv.name); if (nn && nn.trim()) { patchVault(vv.id, function (x) { x.name = nn.trim(); }); renderNotes(); } }
+    else if (act === "vrefresh" && vv) { refreshId = vv.id; addTarget = null; toast("Pick the folder again; changed notes will be picked up.", 5000); $("pickMd").click(); }
+    else if (act === "vrename" && vv) { var nn = prompt("Folder name:", vv.name); if (nn && nn.trim()) { patchVault(vv.id, function (x) { x.name = nn.trim(); }); renderNotes(); } }
     else if (act === "nopen" && v) { noteStack = []; showNote(v, t.getAttribute("data-p"), {}); }
     else if (act === "nback" && v) {
       if (noteStack.length) { var prev = noteStack.pop(); showNote(v, prev.path, { y: prev.y }); }
@@ -2511,31 +2535,31 @@ body.pod .seekrow { display: flex; }
     }
   });
 
-  /* ---------- Mehrere Tabs ---------- */
-  // Andere Tabs derselben Seite schreiben in denselben Speicher; der Browser meldet das hier mit "storage". Diesen Tab dann nachziehen,
-  // damit er nichts Veraltetes anzeigt oder später zurückschreibt.
+  /* ---------- Several tabs ---------- */
+  // Other tabs of the same page write into the same storage; the browser reports that here with "storage". Bring this tab up to date,
+  // so that it does not show anything stale or write it back later.
   function syncVaults() {
     vaults = loadList("vaults", "files"); vIdx = null; mdTexts = null;
     if (openVaultId && !findVault(openVaultId)) {
       var succ = successorOf(openVaultId), note = openNote;
-      closeVault();                                         // auch eine laufende Lese-Anfrage für den alten Ordner verwerfen
-      if (succ) {                                           // dort aktualisiert: mit dem Nachfolger weitermachen (gleiche Notiz, falls es sie noch gibt)
+      closeVault();                                         // also discard a running read request for the old folder
+      if (succ) {                                           // refreshed there: carry on with the successor (same note, if it still exists)
         openVaultId = succ.id;
         if (note && idxFor(succ).byPath[note.toLowerCase()]) openNote = note;
       }
       noteBody.innerHTML = "";
     }
-    if (view !== "note" || (openNote && noteBody.querySelector(".rbar"))) return;    // ein offener Leser bleibt, wie er ist
+    if (view !== "note" || (openNote && noteBody.querySelector(".rbar"))) return;    // an open reader stays as it is
     var v = openVaultId ? findVault(openVaultId) : null, q = $("mdq");
-    if (v && !openNote && q && document.activeElement === q) renderRes(v);         // beim Tippen in der Suche nicht das Feld neu aufbauen
+    if (v && !openNote && q && document.activeElement === q) renderRes(v);         // while typing in the search, do not rebuild the field
     else renderNotes();
   }
   function syncFromStorage(k) {
-    var all = k == null;                                    // null: der Speicher wurde ganz geleert
+    var all = k == null;                                    // null: the storage was cleared completely
     if (all || k === "tl_favs") { favs = cleanFavs(store.get("favs", [])); if (view === "radio") { renderChips(); renderGrid(); } }
     if (all || k === "tl_pos" || k === "tl_done") loadProgress();
-    // "gehört" ändert Knöpfe und Markierungen: sichtbare Liste neu zeichnen. (tl_pos nicht: das schreibt ein spielender Tab alle 5 s,
-    // und die Position steuert keinen Knopf.)
+    // "heard" changes buttons and marks: redraw the visible list. (Not tl_pos: a playing tab writes that every 5 s,
+    // and the position does not control any button.)
     if ((all || k === "tl_done") && (view === "book" || view === "pod")) refreshPod();
     if (all || k === "tl_mdpos") loadMdPos();
     if (all || k === "tl_subs") { subs = obj(store.get("subs", {})); feed = null; }
@@ -2546,7 +2570,7 @@ body.pod .seekrow { display: flex; }
     if (all || k === "tl_vaults") syncVaults();
   }
   window.addEventListener("storage", function (e) {
-    try { if (e.storageArea && e.storageArea !== window.localStorage) return; } catch (x) { return; }   // sessionStorage betrifft nur den eigenen Tab
+    try { if (e.storageArea && e.storageArea !== window.localStorage) return; } catch (x) { return; }   // sessionStorage only concerns the own tab
     if (e.key == null || e.key.indexOf("tl_") === 0) syncFromStorage(e.key);
   });
 
@@ -2556,14 +2580,24 @@ body.pod .seekrow { display: flex; }
   var barsEl = $("bars");
   for (var i = 0; i < 32; i++) { var b = document.createElement("span"); b.style.setProperty("--i", i); b.style.height = (40 + Math.abs(Math.sin(i * .7)) * 60) + "%"; barsEl.appendChild(b); }
 
-  // Installierbare App: Service Worker nur über http(s) registrieren
+  // Pause the animations when the tab is in the background (all of them) or the header (orb, bars) is not on screen
+  var heroSeen = true;
+  function syncStill() { document.body.classList.toggle("bg", !!document.hidden); document.body.classList.toggle("still", !heroSeen); }
+  document.addEventListener("visibilitychange", syncStill);
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (en) { heroSeen = en[en.length - 1].isIntersecting; syncStill(); }).observe(document.querySelector(".hero"));
+  }
+
+  syncStill();                           // the page may start in a background tab
+
+  // Installable app: register the service worker over http(s) only
   if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
     window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
   }
 
   renderChips(); renderGrid();
   var last = byId(store.get("last", ""));
-  if (last) select(last.id, false);   // zuletzt gehörten Sender vorwählen, nicht automatisch starten
+  if (last) select(last.id, false);   // preselect the last station, do not start it automatically
   else setHue("chill");
   setView(view);
 })();
